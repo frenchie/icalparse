@@ -22,6 +22,8 @@
 
 import sys
 import re
+import urlparse
+import os
 from optparse import OptionParser
 
 class InvalidICS(Exception): pass
@@ -83,7 +85,7 @@ if __name__ == '__main__':
 	# If the user passed us a 'stdin' argument, we'll go with that,
 	# otherwise we'll try for a url opener
 
-	parser = OptionParser()
+	parser = OptionParser('usage: %prog [options] url')
 	parser.add_option('-s', '--stdin', action='store_true', dest='stdin',
 		default=False, help='Take a calendar from standard input')
 	parser.add_option('-o', '--output', dest='outfile', default='',
@@ -91,15 +93,48 @@ if __name__ == '__main__':
 
 	(options, args) = parser.parse_args()
 
-	if not options.stdin:
+	if not args and not options.stdin:
+		parser.print_usage()
+		sys.exit(0)
+
+	url = args[0]
+
+	# Work out what url parsers we're going to need based on what the user
+	# gave us on the command line - we do like files after all
+	parsedURL = urlparse.urlparse(url)
+	http = 'http' in parsedURL[0]
+
+	if not parsedURL[0]: u = False
+	else: u = True
+
+	if not options.stdin and http:
 		try:
 			import httplib2
-			urllib = False
 		except ImportError:
-			try:
-				import urllib
-				urllib = True
-			except ImportError:
-				sys.stderr.write('Failed to find a suitable http downloader\n')
-				raise
+			import urllib2
 
+	# Try and play nice with HTTP servers unless something goes wrong. We don't
+	# really care about this cache so it can be somewhere volatile
+	h = False
+	if 'httplib2' in sys.modules:
+		try: h = httplib2.Http('.httplib2-cache')
+		except OSError: h = httplib2.Http()
+
+	if not options.stdin and (not http or not 'httplib2' in sys.modules):
+		import urllib2
+
+	try:
+		content = u and (h and h.request(url)[1] or urllib2.urlopen(url).read())
+	except (ValueError, urllib2.URLError), e:
+		sys.stderr.write('%s\n'%e)
+		sys.exit(1)
+
+	if not u:
+		try: content = open(os.path.abspath(url),'r').read()
+		except (IOError, OSError), e:
+			sys.stderr.write('%s\n'%e)
+			sys.exit(1)
+
+	# RFC5545 and RFC5546 Calendars should be generated UTF-8 and we need to
+	# be able to read ANSI as well. This should take care of us.
+	content = unicode(content, encoding='utf-8')
