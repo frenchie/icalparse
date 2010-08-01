@@ -28,8 +28,6 @@ import os
 class InvalidICS(Exception): pass
 class notJoined(Exception): pass
 
-# RFC5545 and RFC5546 iCalendar registries contain upper case letters
-# and dashes only and are separated from the value by a colon (:)
 icalEntry = re.compile('^[A-Z\-]+:.*')
 
 def lineJoiner(oldcal):
@@ -38,8 +36,6 @@ def lineJoiner(oldcal):
 	if list(oldcal) == oldcal:
 		oldcal = '\r\n'.join(oldcal)
 
-	# RFC2445 This sequence defines a content 'fold' and needs to be stripped
-	# from the output before writing the file
 	oldcal.replace('\r\n ', '')
 	return oldcal.split('\r\n')
 
@@ -47,11 +43,14 @@ def lineJoiner(oldcal):
 def lineFolder(oldcal, length=75):
 	'''Folds content lines to a specified length, returns a list'''
 
+	if length > 75:
+		sys.stderr.write('WARN: lines > 75 octets are not RFC compliant\n')
+
 	cal = []
 	sl = length - 1
 
 	for line in oldcal:
-		# Line & line ending line ending fit inside length, do nothing
+		# Line fits inside length, do nothing
 		if len(line.rstrip()) <= length:
 			cal.append(line)
 		else:
@@ -63,6 +62,10 @@ def lineFolder(oldcal, length=75):
 			cal += brokenline
 
 	return cal
+
+def getContent(url='',stdin=False):
+	pass
+
 
 if __name__ == '__main__':
 	from optparse import OptionParser
@@ -125,9 +128,3 @@ if __name__ == '__main__':
 
 	if options.stdin:
 		content = sys.stdin.read()
-
-	# RFC5545 and RFC5546 New calendars should be generated UTF-8 and we need to
-	# be able to read ANSI as well. This should take care of us.
-	content = unicode(content, encoding='utf-8')
-
-	#return content
