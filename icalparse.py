@@ -21,14 +21,11 @@
 # THE SOFTWARE.
 
 import sys
-import re
 import urlparse
 import os
 
 class InvalidICS(Exception): pass
 class notJoined(Exception): pass
-
-icalEntry = re.compile('^[A-Z\-]+:.*')
 
 def lineJoiner(oldcal):
 	'''Takes a string containing a calendar and returns an array of its lines'''
