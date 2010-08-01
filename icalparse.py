@@ -24,7 +24,6 @@ import sys
 import re
 import urlparse
 import os
-from optparse import OptionParser
 
 class InvalidICS(Exception): pass
 class notJoined(Exception): pass
@@ -61,7 +60,7 @@ def lineJoiner(oldcal):
 
 	return cal
 
-def lineSplitter(oldcal, length=75):
+def lineFolder(oldcal, length=75):
 	'''Folds content lines to a specified length, returns a list'''
 
 	cal = []
@@ -82,6 +81,7 @@ def lineSplitter(oldcal, length=75):
 	return cal
 
 if __name__ == '__main__':
+	from optparse import OptionParser
 	# If the user passed us a 'stdin' argument, we'll go with that,
 	# otherwise we'll try for a url opener
 
@@ -96,8 +96,10 @@ if __name__ == '__main__':
 	if not args and not options.stdin:
 		parser.print_usage()
 		sys.exit(0)
-
-	url = args[0]
+	elif not options.stdin:
+		url = args[0]
+	else:
+		url = ''
 
 	# Work out what url parsers we're going to need based on what the user
 	# gave us on the command line - we do like files after all
@@ -114,12 +116,14 @@ if __name__ == '__main__':
 			import urllib2
 
 	# Try and play nice with HTTP servers unless something goes wrong. We don't
-	# really care about this cache so it can be somewhere volatile
+	# really care about this cache (A lot of ics files seem to be generated with
+	# php which hates caching with a passion).
 	h = False
 	if 'httplib2' in sys.modules:
 		try: h = httplib2.Http('.httplib2-cache')
 		except OSError: h = httplib2.Http()
 
+	# Load urllib2 if this is not a stdin
 	if not options.stdin and (not http or not 'httplib2' in sys.modules):
 		import urllib2
 
@@ -129,12 +133,17 @@ if __name__ == '__main__':
 		sys.stderr.write('%s\n'%e)
 		sys.exit(1)
 
-	if not u:
+	if not u and not options.stdin:
 		try: content = open(os.path.abspath(url),'r').read()
 		except (IOError, OSError), e:
 			sys.stderr.write('%s\n'%e)
 			sys.exit(1)
 
-	# RFC5545 and RFC5546 Calendars should be generated UTF-8 and we need to
+	if options.stdin:
+		content = sys.stdin.read()
+
+	# RFC5545 and RFC5546 New calendars should be generated UTF-8 and we need to
 	# be able to read ANSI as well. This should take care of us.
 	content = unicode(content, encoding='utf-8')
+
+	#return content
