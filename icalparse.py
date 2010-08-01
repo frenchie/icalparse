@@ -33,32 +33,16 @@ class notJoined(Exception): pass
 icalEntry = re.compile('^[A-Z\-]+:.*')
 
 def lineJoiner(oldcal):
-	'''Unfolds a calendar so that items can be parsed'''
+	'''Takes a string containing a calendar and returns an array of its lines'''
 
-	cal = []
+	if list(oldcal) == oldcal:
+		oldcal = '\r\n'.join(oldcal)
 
-	# Strip newlines (
-	for line in oldcal:
-		line = line.rstrip('\r\n')
+	# RFC2445 This sequence defines a content 'fold' and needs to be stripped
+	# from the output before writing the file
+	oldcal.replace('\r\n ', '')
+	return oldcal.split('\r\n')
 
-		# Reassemble broken Lines
-		if not line:
-			if not cal: continue
-			else: cal[-1] += '\\n'
-		elif line[0] == ' ':
-			if not cal: raise InvalidICS, 'First line of ICS must be element'
-			line = line[1:len(line)]
-			cal[-1] += line
-		elif not icalEntry.match(line):
-			if not cal: raise InvalidICS, 'First line of ICS must be element'
-			cal[-1] += '\\n' + line
-		else:
-			if cal: cal[-1] += '\r\n'
-			cal.append(line)
-
-	cal[-1] += '\r\n'
-
-	return cal
 
 def lineFolder(oldcal, length=75):
 	'''Folds content lines to a specified length, returns a list'''
