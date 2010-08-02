@@ -41,7 +41,7 @@ def lineJoiner(oldcal):
 		oldcal = '\r\n'.join(oldcal)
 
 	oldcal = oldcal.replace('\r\n ', '').replace('\r\n\t','')
-	return oldcal.strip().split('\r\n')
+	return [unicode(x, 'utf-8') for x in oldcal.strip().split('\r\n')]
 
 
 def lineFolder(oldcal, length=75):
@@ -54,6 +54,7 @@ def lineFolder(oldcal, length=75):
 	sl = length - 1
 
 	for line in oldcal:
+		line = line.encode('utf-8')
 		# Line fits inside length, do nothing
 		if len(line.rstrip()) <= length:
 			cal.append(line)
