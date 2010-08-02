@@ -97,7 +97,7 @@ def getContent(url='',stdin=False):
 		res = urllib2.urlopen(url)
 		content = res.read()
 		res.close()
-	except (urllib2.URLError, ValueError), e:
+	except (urllib2.URLError, OSError), e:
 		sys.stderr.write('%s\n'%e)
 		sys.exit(1)
 	return content
@@ -131,7 +131,7 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
 	try:
 		content = urllib2.urlopen(url).read()
 		return content
-	except urllib2.URLError, e:
+	except (urllib2.URLError, OSError), e:
 		sys.stderr.write('%s\n'%e)
 		sys.exit(1)
 
