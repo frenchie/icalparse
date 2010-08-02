@@ -30,6 +30,9 @@ class notJoined(Exception): pass
 def lineJoiner(oldcal):
 	'''Takes a string containing a calendar and returns an array of its lines'''
 
+	if not oldcal[0:15] == 'BEGIN:VCALENDAR':
+		raise InvalidICS, "Does not appear to be a valid ICS file"
+
 	if list(oldcal) == oldcal:
 		oldcal = '\r\n'.join(oldcal)
 
@@ -149,3 +152,5 @@ if __name__ == '__main__':
 		url = ''
 
 	content = getContent(url, options.stdin)
+	cal = lineJoiner(content)
+	print cal
