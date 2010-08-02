@@ -202,6 +202,29 @@ def applyRules(ical, rules=[], verbose=False):
 	return ical
 
 
+def writeOutput(cal, outfile=''):
+	'''Takes a list of lines and outputs to the specified file'''
+
+	if not cal:
+		sys.stderr.write('Refusing to write out an empty file')
+		sys.exit(0)
+
+	if not outfile:
+		out = sys.stdout
+	else:
+		try:
+			out = open(outfile, 'w')
+		except (IOError, OSError), e:
+			sys.stderr.write('%s\n'%e)
+			sys.exit(1)
+
+	if cal[-1]: cal.append('')
+
+	out.write('\r\n'.join(cal))
+
+	if not out == sys.stdout:
+		out.close()
+
 
 if __name__ == '__main__':
 	from optparse import OptionParser
@@ -228,4 +251,4 @@ if __name__ == '__main__':
 	cal = lineJoiner(content)
 	ical = applyRules(splitFields(cal), generateRules())
 	output = lineFolder(joinFields(ical))
-	print output
+	writeOutput(output, options.outfile)
