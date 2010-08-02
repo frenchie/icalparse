@@ -53,25 +53,42 @@ def lineFolder(oldcal, length=75):
 	cal = []
 	sl = length - 1
 
-	for line in oldcal:
-		line = line.encode('utf-8')
+	for uline in oldcal:
+		line = uline.encode('utf-8')
+
 		# Line fits inside length, do nothing
-		if len(line.rstrip()) <= length:
+		if len(line) <= length:
 			cal.append(line)
+
 		else:
-			brokenline = [line[0:length]]
 			ll = length
-			while ll < len(line) + 1:
-				brokenline.append(line[ll:sl+ll])
-				ll += sl
-			brokenline = '\r\n '.join(brokenline)
-			cal.append(brokenline)
+			foldedline = []
+			while uline:
+				# This algorithm prevents slicing multi-byte chars in half
+
+				# Convert up to length octets to unicode, dropping any
+				# half characters
+				ufold = unicode(line[0:75], 'utf-8', 'ignore')
+				fold = ufold.encode('utf-8')
+
+				# Remove what we've converted from the line
+				uline = uline.replace(ufold,u'',1)
+				line = uline.encode('utf-8')
+
+				# And add the fold to the list
+				foldedline.append(fold)
+
+				# Subsequent lines are shorter as they include a space
+				ll = length - 1
+
+			# Finally, add the fold 'marker' to the line
+			cal.append('\r\n '.join(foldedline))
 
 	return cal
 
 
 def splitFields(cal):
-	'''Takes a list of lines in a calendar file and returns a list of tuples	
+	'''Takes a list of lines in a calendar file and returns a list of tuples
 	as (key, value) pairs'''
 
 	ical = [tuple(x.split(':',1)) for x in cal]
