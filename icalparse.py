@@ -68,7 +68,7 @@ def lineFolder(oldcal, length=75):
 
 				# Convert up to length octets to unicode, dropping any
 				# half characters
-				ufold = unicode(line[0:75], 'utf-8', 'ignore')
+				ufold = unicode(line[0:ll], 'utf-8', 'ignore')
 				fold = ufold.encode('utf-8')
 
 				# Remove what we've converted from the line
