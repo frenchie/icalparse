@@ -60,12 +60,13 @@ def lineFolder(oldcal, length=75):
 		if len(line.rstrip()) <= length:
 			cal.append(line)
 		else:
-			brokenline = [line[0:length] + '\r\n']
+			brokenline = [line[0:length]]
 			ll = length
-			while ll < len(line.rstrip('\r\n')) + 1:
-				brokenline.append(' ' + line[ll:sl+ll].rstrip('\r\n') + '\r\n')
+			while ll < len(line) + 1:
+				brokenline.append(line[ll:sl+ll])
 				ll += sl
-			cal += brokenline
+			brokenline = '\r\n '.join(brokenline)
+			cal.append(brokenline)
 
 	return cal
 
