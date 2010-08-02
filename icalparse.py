@@ -61,8 +61,71 @@ def lineFolder(oldcal, length=75):
 	return cal
 
 def getContent(url='',stdin=False):
-	pass
+	'''Generic content retriever, DO NOT use this function in a CGI script as
+	it can read from the local disk (which you probably don't want it to).
+	'''
 
+	# Special case, if this is a HTTP url, return the data from it using
+	# the HTTP functions which attempt to play a bit nicer.
+	parsedURL = urlparse.urlparse(url)
+	if 'http' in parsedURL[0]: return getHTTPContent(url)
+
+	if stdin:
+		content = sys.stdin.read()
+		return content
+
+	if not parsedURL[0]:
+		try: content = open(os.path.abspath(url),'r').read()
+		except (IOError, OSError), e:
+			sys.stderr.write('%s\n'%e)
+			sys.exit(1)
+		return content
+
+	# If we've survived, use python's generic URL opening library to handle it
+	import urllib2
+	try:
+		res = urllib2.urlopen(url)
+		content = res.read()
+		res.close()
+	except (urllib2.URLError, ValueError), e:
+		sys.stderr.write('%s\n'%e)
+		sys.exit(1)
+	return content
+
+
+def getHTTPContent(url='',cache='.httplib2-cache'):
+	'''This function attempts to play nice when retrieving content from HTTP
+	services. It's what you should use in a CGI script. It will (by default)
+	slurp the first 20 bytes of the file and check that we are indeed looking
+	at an ICS file before going for broke.'''
+
+	try:
+		import httplib2
+	except ImportError:
+		import urllib2
+
+	if not url: return ''
+
+	if 'httplib2' in sys.modules:
+		try: h = httplib2.Http('.httplib2-cache')
+		except OSError: h = httplib2.Http()
+	else: h = False
+
+	try:
+		if h: content = h.request(url)[1]
+		return content
+	except ValueError, e:
+		sys.stderr.write('%s\n'%e)
+		sys.exit(1)
+
+	try:
+		content = urllib2.urlopen(url).read()
+		return content
+	except urllib2.URLError, e:
+		sys.stderr.write('%s\n'%e)
+		sys.exit(1)
+
+	return ''
 
 if __name__ == '__main__':
 	from optparse import OptionParser
@@ -85,43 +148,4 @@ if __name__ == '__main__':
 	else:
 		url = ''
 
-	# Work out what url parsers we're going to need based on what the user
-	# gave us on the command line - we do like files after all
-	parsedURL = urlparse.urlparse(url)
-	http = 'http' in parsedURL[0]
-
-	if not parsedURL[0]: u = False
-	else: u = True
-
-	if not options.stdin and http:
-		try:
-			import httplib2
-		except ImportError:
-			import urllib2
-
-	# Try and play nice with HTTP servers unless something goes wrong. We don't
-	# really care about this cache (A lot of ics files seem to be generated with
-	# php which hates caching with a passion).
-	h = False
-	if 'httplib2' in sys.modules:
-		try: h = httplib2.Http('.httplib2-cache')
-		except OSError: h = httplib2.Http()
-
-	# Load urllib2 if this is not a stdin
-	if not options.stdin and (not http or not 'httplib2' in sys.modules):
-		import urllib2
-
-	try:
-		content = u and (h and h.request(url)[1] or urllib2.urlopen(url).read())
-	except (ValueError, urllib2.URLError), e:
-		sys.stderr.write('%s\n'%e)
-		sys.exit(1)
-
-	if not u and not options.stdin:
-		try: content = open(os.path.abspath(url),'r').read()
-		except (IOError, OSError), e:
-			sys.stderr.write('%s\n'%e)
-			sys.exit(1)
-
-	if options.stdin:
-		content = sys.stdin.read()
+	content = getContent(url, options.stdin)
