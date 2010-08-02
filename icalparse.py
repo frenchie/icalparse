@@ -162,6 +162,38 @@ def generateRules():
 	return rules
 
 
+def applyRules(ical, rules=[], verbose=False):
+	'Runs a series of rules on the lines in ical and mangles its output'
+
+	for rule in rules:
+		output = []
+		if rule.__doc__ and verbose:
+			print(rule.__doc__)
+		for line in ical:
+			try:
+				out = rule(line[0],line[1])
+			except TypeError, e:
+				output.append(line)
+				print(e)
+				continue
+
+			# Drop lines that are boolean False
+			if not out and not out == None: continue
+
+			# If the rule did something and is a tuple or a list we'll accept it
+			# otherwise, pay no attention to the man behind the curtain
+			try:
+				if tuple(out) == out or list(out) == out and len(out) == 2:
+					output.append(tuple(out))
+				else:
+					output.append(line)
+			except TypeError, e:
+				output.append(line)
+
+		ical = output
+
+	return ical
+
 if __name__ == '__main__':
 	from optparse import OptionParser
 	# If the user passed us a 'stdin' argument, we'll go with that,
@@ -185,6 +217,5 @@ if __name__ == '__main__':
 
 	content = getContent(url, options.stdin)
 	cal = lineJoiner(content)
-	ical = splitFields(cal)
-	rules = generateRules()
-	print rules
+	ical = applyRules(splitFields(cal), generateRules())
+	print ical
