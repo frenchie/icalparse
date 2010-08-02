@@ -24,8 +24,11 @@ import sys
 import urlparse
 import os
 
+
 class InvalidICS(Exception): pass
 class notJoined(Exception): pass
+class IncompleteICS(InvalidICS): pass
+
 
 def lineJoiner(oldcal):
 	'''Takes a string containing a calendar and returns an array of its lines'''
@@ -33,11 +36,14 @@ def lineJoiner(oldcal):
 	if not oldcal[0:15] == 'BEGIN:VCALENDAR':
 		raise InvalidICS, "Does not appear to be a valid ICS file"
 
+	if not 'END:VCALENDAR' in oldcal[-15:-1]:
+		raise IncompleteICS, "File appears to be incomplete"
+
 	if list(oldcal) == oldcal:
 		oldcal = '\r\n'.join(oldcal)
 
-	oldcal.replace('\r\n ', '')
-	return oldcal.split('\r\n')
+	oldcal = oldcal.replace('\r\n ', '').replace('\r\n\t','')
+	return oldcal.strip().split('\r\n')
 
 
 def lineFolder(oldcal, length=75):
@@ -62,6 +68,7 @@ def lineFolder(oldcal, length=75):
 			cal += brokenline
 
 	return cal
+
 
 def getContent(url='',stdin=False):
 	'''Generic content retriever, DO NOT use this function in a CGI script as
