@@ -150,6 +150,18 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
 
 	return ''
 
+
+def generateRules():
+	'''Attempts to load a series of rules into a list'''
+	try:
+		import parserrules
+	except ImportError:
+		return []
+
+	rules = [getattr(parserrules, rule) for rule in dir(parserrules) if callable(getattr(parserrules, rule))]
+	return rules
+
+
 if __name__ == '__main__':
 	from optparse import OptionParser
 	# If the user passed us a 'stdin' argument, we'll go with that,
@@ -174,4 +186,5 @@ if __name__ == '__main__':
 	content = getContent(url, options.stdin)
 	cal = lineJoiner(content)
 	ical = splitFields(cal)
-	print ical
+	rules = generateRules()
+	print rules
