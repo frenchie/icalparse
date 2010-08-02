@@ -26,9 +26,7 @@ import os
 
 
 class InvalidICS(Exception): pass
-class notJoined(Exception): pass
 class IncompleteICS(InvalidICS): pass
-
 
 def lineJoiner(oldcal):
 	'''Takes a string containing a calendar and returns an array of its lines'''
@@ -72,7 +70,8 @@ def lineFolder(oldcal, length=75):
 
 
 def splitFields(cal):
-	'''Takes a list of lines in a calendar file and returns a list of key, value pairs'''
+	'''Takes a list of lines in a calendar file and returns a list of tuples	
+	as (key, value) pairs'''
 
 	ical = [tuple(x.split(':',1)) for x in cal]
 
@@ -85,7 +84,8 @@ def splitFields(cal):
 
 
 def joinFields(ical):
-	'''Takes a list of tuples that make up a calendar file and returns a list of lines'''
+	'''Takes a list of tuples that make up a calendar file and returns it to a
+	list of lines'''
 
 	return [':'.join(x) for x in ical]
 
@@ -125,9 +125,7 @@ def getContent(url='',stdin=False):
 
 def getHTTPContent(url='',cache='.httplib2-cache'):
 	'''This function attempts to play nice when retrieving content from HTTP
-	services. It's what you should use in a CGI script. It will (by default)
-	slurp the first 20 bytes of the file and check that we are indeed looking
-	at an ICS file before going for broke.'''
+	services. It's what you should use in a CGI script.'''
 
 	try:
 		import httplib2
@@ -234,6 +232,8 @@ if __name__ == '__main__':
 	parser = OptionParser('usage: %prog [options] url')
 	parser.add_option('-s', '--stdin', action='store_true', dest='stdin',
 		default=False, help='Take a calendar from standard input')
+	parser.add_option('-v', '--verbose', action='store_true', dest='verbose',
+		default=False, help='Be verbose when rules are being applied')
 	parser.add_option('-o', '--output', dest='outfile', default='',
 		help='Specify output file (defaults to standard output)')
 
@@ -249,6 +249,6 @@ if __name__ == '__main__':
 
 	content = getContent(url, options.stdin)
 	cal = lineJoiner(content)
-	ical = applyRules(splitFields(cal), generateRules())
+	ical = applyRules(splitFields(cal), generateRules(), options.verbose)
 	output = lineFolder(joinFields(ical))
 	writeOutput(output, options.outfile)
