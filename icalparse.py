@@ -83,6 +83,12 @@ def splitFields(cal):
 	return ical
 
 
+def joinFields(ical):
+	'''Takes a list of tuples that make up a calendar file and returns a list of lines'''
+
+	return [':'.join(x) for x in ical]
+
+
 def getContent(url='',stdin=False):
 	'''Generic content retriever, DO NOT use this function in a CGI script as
 	it can read from the local disk (which you probably don't want it to).
@@ -194,6 +200,8 @@ def applyRules(ical, rules=[], verbose=False):
 
 	return ical
 
+
+
 if __name__ == '__main__':
 	from optparse import OptionParser
 	# If the user passed us a 'stdin' argument, we'll go with that,
@@ -218,4 +226,5 @@ if __name__ == '__main__':
 	content = getContent(url, options.stdin)
 	cal = lineJoiner(content)
 	ical = applyRules(splitFields(cal), generateRules())
-	print ical
+	output = lineFolder(joinFields(ical))
+	print output
