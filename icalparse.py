@@ -70,6 +70,19 @@ def lineFolder(oldcal, length=75):
 	return cal
 
 
+def splitFields(cal):
+	'''Takes a list of lines in a calendar file and returns a list of key, value pairs'''
+
+	ical = [tuple(x.split(':',1)) for x in cal]
+
+	# Check that we got 2 items on every line
+	for line in ical:
+		if not len(line) == 2:
+			raise InvalidICS, "Didn't find a content key on: %s"%(line)
+
+	return ical
+
+
 def getContent(url='',stdin=False):
 	'''Generic content retriever, DO NOT use this function in a CGI script as
 	it can read from the local disk (which you probably don't want it to).
@@ -160,4 +173,5 @@ if __name__ == '__main__':
 
 	content = getContent(url, options.stdin)
 	cal = lineJoiner(content)
-	print cal
+	ical = splitFields(cal)
+	print ical
