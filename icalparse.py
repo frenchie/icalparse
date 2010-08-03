@@ -153,37 +153,38 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
 	except ImportError:
 		import urllib2
 
-	if not url: return ''
-
-	encoding = '' # If we don't populate this, the script will assume UTF-8
+	if not url: return ('','')
 
 	if 'httplib2' in sys.modules:
 		try: h = httplib2.Http('.httplib2-cache')
 		except OSError: h = httplib2.Http()
 	else: h = False
 
-	try:
-		if h:
+	if h:
+		try:
 			req = h.request(url)
-			content = req[1]
-			if 'content-type' in req[0]:
-				for ct in req[0]['content-type'].split(';'):
-					ct = ct.lower()
-					if 'charset' in ct:
-						encoding = ct.split('=')[1].strip()
-		return (content, encoding)
-	except ValueError, e:
-		sys.stderr.write('%s\n'%e)
-		sys.exit(1)
+		except ValueError, e:
+			sys.stderr.write('%s\n'%e)
+			sys.exit(1)
 
-	try:
-		content = urllib2.urlopen(url).read()
-		return (content, encoding)
-	except (urllib2.URLError, OSError), e:
-		sys.stderr.write('%s\n'%e)
-		sys.exit(1)
+		content = req[1]
+		if 'content-type' in req[0]: ct = req[0]['content-type']
 
-	return ('', '')
+	else:
+		try:
+			req = urllib2.urlopen(url)
+		except urllib2.URLError, e:
+			sys.stderr.write('%s\n'%e)
+			sys.exit(1)
+
+		content = req.read()
+		info = req.info()
+
+		ct = info['content-type']
+
+	encoding = 'charset' in ct and ct.split(';')[-1].lower().split('=')[-1].strip() or ''
+
+	return (content, encoding)
 
 
 def generateRules():
