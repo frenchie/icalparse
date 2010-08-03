@@ -30,6 +30,16 @@ class IncompleteICS(InvalidICS): pass
 
 def lineJoiner(oldcal, encoding='utf-8'):
 	'''Takes a string containing a calendar and returns an array of its lines'''
+	try:
+		oldcal = unicode(oldcal, encoding)
+		oldcal = oldcal.replace('\r\n ', '').replace('\r\n\t','')
+	except UnicodeDecodeError:
+		# This is probably a file with badly folded lines
+		oldcal = oldcal.replace('\r\n ', '').replace('\r\n\t','')
+		try: oldcal = unicode(oldcal, encoding)
+		except UnicodeDecodeError:
+			sys.stderr.write('Malformed File')
+			raise
 
 	if not oldcal[0:15] == 'BEGIN:VCALENDAR':
 		raise InvalidICS, "Does not appear to be a valid ICS file"
@@ -40,8 +50,7 @@ def lineJoiner(oldcal, encoding='utf-8'):
 	if list(oldcal) == oldcal:
 		oldcal = '\r\n'.join(oldcal)
 
-	oldcal = oldcal.replace('\r\n ', '').replace('\r\n\t','')
-	return [unicode(x, encoding) for x in oldcal.strip().split('\r\n')]
+	return oldcal.split('\r\n')
 
 
 def lineFolder(oldcal, length=75):
@@ -81,12 +90,14 @@ def splitFields(cal):
 	'''Takes a list of lines in a calendar file and returns a list of tuples
 	as (key, value) pairs'''
 
-	ical = [tuple(x.split(':',1)) for x in cal]
+	ical = []
 
 	# Check that we got 2 items on every line
-	for line in ical:
-		if not len(line) == 2:
-			raise InvalidICS, "Didn't find a content key on: %s"%(line)
+	for line in [tuple(x.split(':',1)) for x in cal]:
+		if not len(line) == 2 and line[0]:
+			raise InvalidICS, 'Unusual content line: %s'%line
+		elif line[0]:
+			ical.append(line)
 
 	return ical
 
@@ -158,9 +169,8 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
 			if 'content-type' in req[0]:
 				for ct in req[0]['content-type'].split(';'):
 					ct = ct.lower()
-					print ct
 					if 'charset' in ct:
-						encoding = ct.split('=')[1]
+						encoding = ct.split('=')[1].strip()
 		return (content, encoding)
 	except ValueError, e:
 		sys.stderr.write('%s\n'%e)
