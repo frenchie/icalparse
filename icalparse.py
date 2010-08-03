@@ -64,24 +64,14 @@ def lineFolder(oldcal, length=75):
 			ll = length
 			foldedline = []
 			while uline:
-				# This algorithm prevents slicing multi-byte chars in half
-
-				# Convert up to length octets to unicode, dropping any
-				# half characters
 				ufold = unicode(line[0:ll], 'utf-8', 'ignore')
 				fold = ufold.encode('utf-8')
-
-				# Remove what we've converted from the line
 				uline = uline.replace(ufold,u'',1)
 				line = uline.encode('utf-8')
-
-				# And add the fold to the list
 				foldedline.append(fold)
 
 				# Subsequent lines are shorter as they include a space
 				ll = length - 1
-
-			# Finally, add the fold 'marker' to the line
 			cal.append('\r\n '.join(foldedline))
 
 	return cal
