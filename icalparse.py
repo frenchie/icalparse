@@ -28,7 +28,7 @@ import os
 class InvalidICS(Exception): pass
 class IncompleteICS(InvalidICS): pass
 
-def lineJoiner(oldcal):
+def lineJoiner(oldcal, encoding='utf-8'):
 	'''Takes a string containing a calendar and returns an array of its lines'''
 
 	if not oldcal[0:15] == 'BEGIN:VCALENDAR':
@@ -41,7 +41,7 @@ def lineJoiner(oldcal):
 		oldcal = '\r\n'.join(oldcal)
 
 	oldcal = oldcal.replace('\r\n ', '').replace('\r\n\t','')
-	return [unicode(x, 'utf-8') for x in oldcal.strip().split('\r\n')]
+	return [unicode(x, encoding) for x in oldcal.strip().split('\r\n')]
 
 
 def lineFolder(oldcal, length=75):
@@ -113,6 +113,8 @@ def getContent(url='',stdin=False):
 	it can read from the local disk (which you probably don't want it to).
 	'''
 
+	encoding = '' # If we don't populate this, the script will assume UTF-8
+
 	# Special case, if this is a HTTP url, return the data from it using
 	# the HTTP functions which attempt to play a bit nicer.
 	parsedURL = urlparse.urlparse(url)
@@ -120,14 +122,14 @@ def getContent(url='',stdin=False):
 
 	if stdin:
 		content = sys.stdin.read()
-		return content
+		return (content, encoding)
 
 	if not parsedURL[0]:
 		try: content = open(os.path.abspath(url),'r').read()
 		except (IOError, OSError), e:
 			sys.stderr.write('%s\n'%e)
 			sys.exit(1)
-		return content
+		return (content, encoding)
 
 	# If we've survived, use python's generic URL opening library to handle it
 	import urllib2
@@ -138,7 +140,7 @@ def getContent(url='',stdin=False):
 	except (urllib2.URLError, OSError), e:
 		sys.stderr.write('%s\n'%e)
 		sys.exit(1)
-	return content
+	return (content, encoding)
 
 
 def getHTTPContent(url='',cache='.httplib2-cache'):
@@ -152,26 +154,36 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
 
 	if not url: return ''
 
+	encoding = '' # If we don't populate this, the script will assume UTF-8
+
 	if 'httplib2' in sys.modules:
 		try: h = httplib2.Http('.httplib2-cache')
 		except OSError: h = httplib2.Http()
 	else: h = False
 
 	try:
-		if h: content = h.request(url)[1]
-		return content
+		if h:
+			req = h.request(url)
+			content = req[1]
+			if 'content-type' in req[0]:
+				for ct in req[0]['content-type'].split(';'):
+					ct = ct.lower()
+					print ct
+					if 'charset' in ct:
+						encoding = ct.split('=')[1]
+		return (content, encoding)
 	except ValueError, e:
 		sys.stderr.write('%s\n'%e)
 		sys.exit(1)
 
 	try:
 		content = urllib2.urlopen(url).read()
-		return content
+		return (content, encoding)
 	except (urllib2.URLError, OSError), e:
 		sys.stderr.write('%s\n'%e)
 		sys.exit(1)
 
-	return ''
+	return ('', '')
 
 
 def generateRules():
@@ -254,6 +266,9 @@ if __name__ == '__main__':
 		default=False, help='Be verbose when rules are being applied')
 	parser.add_option('-o', '--output', dest='outfile', default='',
 		help='Specify output file (defaults to standard output)')
+	parser.add_option('-m','--encoding', dest='encoding', default='',
+		help='Specify a different character encoding'
+		'(ignored if the remote server also specifies one)')
 
 	(options, args) = parser.parse_args()
 
@@ -265,8 +280,9 @@ if __name__ == '__main__':
 	else:
 		url = ''
 
-	content = getContent(url, options.stdin)
-	cal = lineJoiner(content)
+	(content, encoding) = getContent(url, options.stdin)
+	encoding = encoding or options.encoding or 'utf-8'
+	cal = lineJoiner(content, encoding)
 	ical = applyRules(splitFields(cal), generateRules(), options.verbose)
 	output = lineFolder(joinFields(ical))
 	writeOutput(output, options.outfile)
