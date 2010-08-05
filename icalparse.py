@@ -125,22 +125,21 @@ def getContent(url='',stdin=False):
 		content = sys.stdin.read()
 		return (content, encoding)
 
-	if not parsedURL[0]:
-		try: content = open(os.path.abspath(url),'r').read()
-		except (IOError, OSError), e:
-			sys.stderr.write('%s\n'%e)
-			sys.exit(1)
-		return (content, encoding)
+	if not parsedURL[0]: url = 'file://' + os.path.abspath(url)
 
 	# If we've survived, use python's generic URL opening library to handle it
 	import urllib2
 	try:
 		res = urllib2.urlopen(url)
 		content = res.read()
+		if 'content-type' in res.info(): ct = res.info()['content-type']
+		else: ct = ''
 		res.close()
 	except (urllib2.URLError, OSError), e:
 		sys.stderr.write('%s\n'%e)
 		sys.exit(1)
+
+	encoding = 'charset' in ct and ct.split(';')[-1].lower().split('=')[-1].strip() or ''
 	return (content, encoding)
 
 
@@ -154,6 +153,7 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
 		import urllib2
 
 	if not url: return ('','')
+	if not 'http' in parsedURL[0]: return ('','')
 
 	if 'httplib2' in sys.modules:
 		try: h = httplib2.Http('.httplib2-cache')
