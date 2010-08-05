@@ -23,6 +23,7 @@
 import sys
 import urlparse
 import os
+from cgi import parse_header
 
 
 class InvalidICS(Exception): pass
@@ -132,14 +133,17 @@ def getContent(url='',stdin=False):
 	try:
 		res = urllib2.urlopen(url)
 		content = res.read()
-		if 'content-type' in res.info(): ct = res.info()['content-type']
-		else: ct = ''
+		ct = res.info().getplist()
 		res.close()
 	except (urllib2.URLError, OSError), e:
 		sys.stderr.write('%s\n'%e)
 		sys.exit(1)
 
-	encoding = 'charset' in ct and ct.split(';')[-1].lower().split('=')[-1].strip() or ''
+	for param in ct:
+		if 'charset' in param:
+			encoding = param.split('=')[1]
+			break
+
 	return (content, encoding)
 
 
@@ -153,7 +157,8 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
 		import urllib2
 
 	if not url: return ('','')
-	if not 'http' in parsedURL[0]: return ('','')
+
+	if not 'http' in urlparse.urlparse(url)[0]: return ('','')
 
 	if 'httplib2' in sys.modules:
 		try: h = httplib2.Http('.httplib2-cache')
@@ -167,8 +172,15 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
 			sys.stderr.write('%s\n'%e)
 			sys.exit(1)
 
-		content = req[1]
-		if 'content-type' in req[0]: ct = req[0]['content-type']
+		resp, content = req
+		if 'content-type' in resp:
+			ct = 'Content-Type: %s'%req[0]['content-type']
+			ct = parse_header(ct)
+			if 'charset' in ct[1]: encoding = ct[1]['charset']
+			else: encoding = ''
+		else:
+			ct = ''
+			encoding = ''
 
 	else:
 		try:
@@ -178,11 +190,11 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
 			sys.exit(1)
 
 		content = req.read()
-		info = req.info()
-
-		ct = info['content-type']
-
-	encoding = 'charset' in ct and ct.split(';')[-1].lower().split('=')[-1].strip() or ''
+		ct = req.info().getplist()
+		for param in ct:
+			if 'charset' in param:
+				encoding = param.split('=')[1]
+				break
 
 	return (content, encoding)
 
