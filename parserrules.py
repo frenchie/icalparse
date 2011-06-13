@@ -1,38 +1,71 @@
 #!/usr/bin/python
-#
-# Copyright (c) 2010 James French <frenchie@frenchie.id.au>
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
 
-# This file describes a series of rules which will be called on an ics file as
-# rule(key, value)
+# Rules for tackling facebook and google calendar - I want visibility of the
+# organiser... not useful Google!
 
-# Your functions are expected to return a (key, value) tuple or they will be
-# treated as if they don't exist (ie, the line will go through unhindered).
-# Returning any boolean false value other than a None will return the line from
-# the final iCalendar file
+import vobject
 
-# The doc string will be presented to the user when run as verbose, so
-# please be polite
+def facebookOrganiser(cal):
+	'''Adds organiser details to the body of facebook calendars.'''
 
-def markEventsPublic(key, value):
-	'''Marking private events public'''
-	# Required as google are strict about the CLASS:PRIVATE/CLASS:CONFIDENTIAL
-	# lines and Facebook like to set them
-	if key == 'CLASS': return (key, 'PUBLIC')
+	if cal.contents.has_key(u'prodid'):
+		if not "Facebook" in cal.prodid.value: return cal
+
+	for event in cal.vevent_list:
+		if not event.contents.has_key(u'organizer'): continue
+		organizer = "Organised by: " + event.organizer.cn_param + " ("
+		organizer += event.organizer.value.lstrip('MAILTO:') + ")\n\n"
+
+		event.description.value = organizer + event.description.value
+
+	return cal
+
+def whatPrivacy(cal):
+	'''Marks events public so google calendar doesn't have a sad about them.'''
+
+	for event in cal.vevent_list:
+		if event.contents.has_key(u'class'):
+			del event.contents[u'class']
+			# Bit of a hack as class is a reserved word in python
+			event.add('class').value = "PUBLIC"
+
+	return cal
+
+def dropMSKeys(cal):
+	'''Drops microsoft keys, good for outlook, just bandwidth when not.'''
+
+	eventBlacklist = [x.lower() for x in [
+		"X-ALT-DESC",
+		"X-MICROSOFT-CDO-BUSYSTATUS",
+		"X-MICROSOFT-CDO-IMPORTANCE",
+		"X-MICROSOFT-DISALLOW-COUNTER",
+		"X-MS-OLK-ALLOWEXTERNCHECK",
+		"X-MS-OLK-AUTOSTARTCHECK",
+		"X-MS-OLK-CONFTYPE",
+		"X-MS-OLK-AUTOFILLLOCATION"
+	]]
+
+	vcalBlacklist = [x.lower() for x in [
+	"X-CALEND",
+	"X-CALSTART",
+	"X-CLIPEND",
+	"X-CLIPSTART",
+	"X-MS-OLK-WKHRDAYS",
+	"X-MS-OLK-WKHREND",
+	"X-MS-OLK-WKHRSTART",
+	"X-OWNER",
+	"X-PRIMARY-CALENDAR",
+	"X-PUBLISHED-TTL",
+	"X-WR-CALDESC",
+	"X-WR-CALNAME",
+	"X-WR-RELCALID"
+	]]
+
+	for event in cal.vevent_list:
+		for blacklist in eventBlacklist:
+			if event.contents.has_key(blacklist): del event.contents[blacklist]
+
+	for blacklist in vcalBlacklist:
+		if cal.contents.has_key(blacklist): del cal.contents[blacklist]
+
+	return cal

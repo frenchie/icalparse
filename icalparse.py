@@ -23,91 +23,8 @@
 import sys
 import urlparse
 import os
+import vobject
 from cgi import parse_header
-
-
-class InvalidICS(Exception): pass
-class IncompleteICS(InvalidICS): pass
-
-def lineJoiner(oldcal, encoding='utf-8'):
-	'''Takes a string containing a calendar and returns an array of its lines'''
-	try:
-		oldcal = unicode(oldcal, encoding)
-		oldcal = oldcal.replace('\r\n ', '').replace('\r\n\t','')
-	except UnicodeDecodeError:
-		# This is probably a file with badly folded lines
-		oldcal = oldcal.replace('\r\n ', '').replace('\r\n\t','')
-		try: oldcal = unicode(oldcal, encoding)
-		except UnicodeDecodeError:
-			sys.stderr.write('Malformed File')
-			raise
-
-	if not oldcal[0:15] == 'BEGIN:VCALENDAR':
-		raise InvalidICS, "Does not appear to be a valid ICS file"
-
-	if not 'END:VCALENDAR' in oldcal[-15:-1]:
-		raise IncompleteICS, "File appears to be incomplete"
-
-	if list(oldcal) == oldcal:
-		oldcal = '\r\n'.join(oldcal)
-
-	return oldcal.split('\r\n')
-
-
-def lineFolder(oldcal, length=75):
-	'''Folds content lines to a specified length, returns a list'''
-
-	if length > 75:
-		sys.stderr.write('WARN: lines > 75 octets are not RFC compliant\n')
-
-	cal = []
-	sl = length - 1
-
-	for uline in oldcal:
-		line = uline.encode('utf-8')
-
-		# Line fits inside length, do nothing
-		if len(line) <= length:
-			cal.append(line)
-
-		else:
-			ll = length
-			foldedline = []
-			while uline:
-				ufold = unicode(line[0:ll], 'utf-8', 'ignore')
-				fold = ufold.encode('utf-8')
-				uline = uline.replace(ufold,u'',1)
-				line = uline.encode('utf-8')
-				foldedline.append(fold)
-
-				# Subsequent lines are shorter as they include a space
-				ll = length - 1
-			cal.append('\r\n '.join(foldedline))
-
-	return cal
-
-
-def splitFields(cal):
-	'''Takes a list of lines in a calendar file and returns a list of tuples
-	as (key, value) pairs'''
-
-	ical = []
-
-	# Check that we got 2 items on every line
-	for line in [tuple(x.split(':',1)) for x in cal]:
-		if not len(line) == 2 and line[0]:
-			raise InvalidICS, 'Unusual content line: %s'%line
-		elif line[0]:
-			ical.append(line)
-
-	return ical
-
-
-def joinFields(ical):
-	'''Takes a list of tuples that make up a calendar file and returns it to a
-	list of lines'''
-
-	return [':'.join(x) for x in ical]
 
 
 def getContent(url='',stdin=False):
@@ -210,38 +127,13 @@ def generateRules():
 	return rules
 
 
-def applyRules(ical, rules=[], verbose=False):
+def applyRules(cal, rules=[], verbose=False):
 	'Runs a series of rules on the lines in ical and mangles its output'
 
 	for rule in rules:
-		output = []
-		if rule.__doc__ and verbose:
-			print(rule.__doc__)
-		for line in ical:
-			try:
-				out = rule(line[0],line[1])
-			except TypeError, e:
-				output.append(line)
-				print(e)
-				continue
+		cal = rule(cal)
 
-			# Drop lines that are boolean False
-			if not out and not out == None: continue
-
-			# If the rule did something and is a tuple or a list we'll accept it
-			# otherwise, pay no attention to the man behind the curtain
-			try:
-				if tuple(out) == out or list(out) == out and len(out) == 2:
-					output.append(tuple(out))
-				else:
-					output.append(line)
-			except TypeError, e:
-				output.append(line)
-
-		ical = output
-
-	return ical
-
+	return cal
 
 def writeOutput(cal, outfile=''):
 	'''Takes a list of lines and outputs to the specified file'''
@@ -259,28 +151,10 @@ def writeOutput(cal, outfile=''):
 			sys.stderr.write('%s\n'%e)
 			sys.exit(1)
 
-	if cal[-1]: cal.append('')
-
-	out.write('\r\n'.join(cal))
+	cal.serialize(out)
 
 	if not out == sys.stdout:
 		out.close()
-
-
-def vobjectRules(ics):
-	'''Applies rules to the ICS file before we have our way with it'''
-
-	try:
-		import vobjectRules
-	except ImportError:
-		sys.stderr.write('Vobject rules file could not be imported\n')
-		return ics
-
-	for rule in vobjectRules.runRules:
-		ics = rule(ics)
-
-	return ics
-
 
 if __name__ == '__main__':
 	from optparse import OptionParser
@@ -297,9 +171,6 @@ if __name__ == '__main__':
 	parser.add_option('-m','--encoding', dest='encoding', default='',
 		help='Specify a different character encoding'
 		'(ignored if the remote server also specifies one)')
-	parser.add_option('-r','--vobject-rules',
-		action='store_true', dest='vobject',
-		help='Run rules written for vobject stored in vobjectRules.py')
 
 	(options, args) = parser.parse_args()
 
@@ -313,8 +184,8 @@ if __name__ == '__main__':
 
 	(content, encoding) = getContent(url, options.stdin)
 	encoding = encoding or options.encoding or 'utf-8'
-	if options.vobject: content = vobjectRules(content)
-	cal = lineJoiner(content, encoding)
-	ical = applyRules(splitFields(cal), generateRules(), options.verbose)
-	output = lineFolder(joinFields(ical))
-	writeOutput(output, options.outfile)
+
+	cal = vobject.readOne(unicode(content, encoding))
+	cal = applyRules(cal, generateRules(), options.verbose)
+
+	writeOutput(cal, options.outfile)
