@@ -267,6 +267,21 @@ def writeOutput(cal, outfile=''):
 		out.close()
 
 
+def vobjectRules(ics):
+	'''Applies rules to the ICS file before we have our way with it'''
+
+	try:
+		import vobjectRules
+	except ImportError:
+		sys.stderr.write('Vobject rules file could not be imported\n')
+		return ics
+
+	for rule in vobjectRules.runRules:
+		ics = rule(ics)
+
+	return ics
+
+
 if __name__ == '__main__':
 	from optparse import OptionParser
 	# If the user passed us a 'stdin' argument, we'll go with that,
@@ -282,6 +297,9 @@ if __name__ == '__main__':
 	parser.add_option('-m','--encoding', dest='encoding', default='',
 		help='Specify a different character encoding'
 		'(ignored if the remote server also specifies one)')
+	parser.add_option('-r','--vobject-rules',
+		action='store_true', dest='vobject',
+		help='Run rules written for vobject stored in vobjectRules.py')
 
 	(options, args) = parser.parse_args()
 
@@ -295,6 +313,7 @@ if __name__ == '__main__':
 
 	(content, encoding) = getContent(url, options.stdin)
 	encoding = encoding or options.encoding or 'utf-8'
+	if options.vobject: content = vobjectRules(content)
 	cal = lineJoiner(content, encoding)
 	ical = applyRules(splitFields(cal), generateRules(), options.verbose)
 	output = lineFolder(joinFields(ical))
