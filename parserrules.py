@@ -36,11 +36,14 @@ def facebookOrganiser(cal):
 
 	for event in cal.vevent_list:
 		if not event.contents.has_key(u'organizer'): continue
-		organizer = "Organised by: " + event.organizer.cn_param + " ("
-		organizer += event.organizer.value.lstrip('MAILTO:') + ")\n\n"
-
-		event.description.value = organizer + event.description.value
-
+		try:
+			a = event.organizer.cn_paramlist
+			organizer = "Organised by: " + event.organizer.cn_param + " ("
+			organizer += event.organizer.value.lstrip('MAILTO:') + ")\n\n"
+			event.description.value = organizer + event.description.value
+		except AttributeError:
+			organizer = "Organized by: " + event.organizer.value
+			event.description.value = organizer + "\n\n" + event.description.value
 	return cal
 
 def whatPrivacy(cal):
@@ -68,27 +71,26 @@ def dropMSKeys(cal):
 		"X-MS-OLK-AUTOFILLLOCATION"
 	]]
 
-	vcalBlacklist = [x.lower() for x in [
-	"X-CALEND",
-	"X-CALSTART",
-	"X-CLIPEND",
-	"X-CLIPSTART",
-	"X-MS-OLK-WKHRDAYS",
-	"X-MS-OLK-WKHREND",
-	"X-MS-OLK-WKHRSTART",
-	"X-OWNER",
-	"X-PRIMARY-CALENDAR",
-	"X-PUBLISHED-TTL",
-	"X-WR-CALDESC",
-	"X-WR-CALNAME",
-	"X-WR-RELCALID"
-	]]
-
 	for event in cal.vevent_list:
 		for blacklist in eventBlacklist:
 			if event.contents.has_key(blacklist): del event.contents[blacklist]
 
-	for blacklist in vcalBlacklist:
-		if cal.contents.has_key(blacklist): del cal.contents[blacklist]
+	return cal
+
+def exDate(cal):
+	'''Changes multi-EXDATE into singles (apple can't obey even simple specs)'''
+
+	for event in cal.vevent_list:
+		if not event.contents.has_key(u'exdate'): continue
+		dates = event.exdate.value
+		try: tzid = event.exdate.tzid_param
+		except AttributeError: tzid = ''
+
+		del event.contents[u'exdate']
+
+		for date in dates:
+			entry = event.add(u'exdate')
+			entry.value = [date]
+			if tzid: entry.tzid_param = tzid
 
 	return cal
