@@ -51,7 +51,9 @@ def whatPrivacy(cal):
 
 	for event in cal.vevent_list:
 		if event.contents.has_key(u'class'):
-			getattr(event, 'class').value = "PUBLIC"
+			# Bit of a hack as class is a reserved word in python
+			del event.contents[u'class']
+			event.add('class').value = "PUBLIC"
 
 	return cal
 
@@ -160,3 +162,20 @@ def unwantedParams(cal):
 
 	return cal
 
+def exDate(cal):
+	'''Changes multi-EXDATE into singles (apple can't obey even simple specs)'''
+
+	for event in cal.vevent_list:
+		if not event.contents.has_key(u'exdate'): continue
+		dates = event.exdate.value
+		try: tzid = event.exdate.tzid_param
+		except AttributeError: tzid = ''
+
+		del event.contents[u'exdate']
+
+		for date in dates:
+			entry = event.add(u'exdate')
+			entry.value = [date]
+			if tzid: entry.tzid_param = tzid
+
+	return cal

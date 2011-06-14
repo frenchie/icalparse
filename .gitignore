@@ -1,2 +1,4 @@
 .httplib2-cache
+.pydevproject
+.project
 *.pyc
