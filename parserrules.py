@@ -112,11 +112,9 @@ def exDate(cal):
 		del event.contents[u'exdate']
 
 		for date in dates:
-			print date
 			if isinstance(date, datetime):
 				if date.tzinfo is None: date = date.replace(tzinfo = default)
 				date = date.astimezone(vobject.icalendar.utc)
-			print date
 			entry = event.add(u'exdate')
 			entry.value = [date]
 
