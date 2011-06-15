@@ -51,14 +51,12 @@ def whatPrivacy(cal):
 
 	for event in cal.vevent_list:
 		if event.contents.has_key(u'class'):
-			del event.contents[u'class']
-			# Bit of a hack as class is a reserved word in python
-			event.add('class').value = "PUBLIC"
+			getattr(event, 'class').value = "PUBLIC"
 
 	return cal
 
-def dropMSKeys(cal):
-	'''Drops microsoft keys, good for outlook, just bandwidth when not.'''
+def dropAttributes(cal):
+	'''Removing unwanted metadata'''
 
 	eventBlacklist = [x.lower() for x in [
 		"X-ALT-DESC",
@@ -68,29 +66,99 @@ def dropMSKeys(cal):
 		"X-MS-OLK-ALLOWEXTERNCHECK",
 		"X-MS-OLK-AUTOSTARTCHECK",
 		"X-MS-OLK-CONFTYPE",
-		"X-MS-OLK-AUTOFILLLOCATION"
+		"X-MS-OLK-AUTOFILLLOCATION",
+		"TRANSP",
+		"SEQUENCE",
+		"PRIORITY"
+	]]
+
+	mainBlacklist = [x.lower() for x in [
+		"X-CLIPSTART",
+		"X-CALSTART",
+		"X-OWNER",
+		"X-MS-OLK-WKHRSTART",
+		"X-MS-OLK-WKHREND",
+		"X-WR-RELCALID",
+		"X-MS-OLK-WKHRDAYS",
+		"X-MS-OLK-APPTSEQTIME",
+		"X-CLIPEND",
+		"X-CALEND",
+		"VTIMEZONE",
+		"X-PRIMARY-CALENDAR"
 	]]
 
 	for event in cal.vevent_list:
 		for blacklist in eventBlacklist:
 			if event.contents.has_key(blacklist): del event.contents[blacklist]
 
+	for blkl in mainBlacklist:
+		while blkl in cal.contents: del cal.contents[blkl]
+
 	return cal
 
 def exDate(cal):
-	'''Changes multi-EXDATE into singles (apple can't obey even simple specs)'''
+	'''Replacing multi-value EXDATES with multiple single-value EXDATES'''
+
+	from datetime import datetime
+	from pytz import timezone
+
+	default = timezone('Australia/Perth')
+
 
 	for event in cal.vevent_list:
 		if not event.contents.has_key(u'exdate'): continue
 		dates = event.exdate.value
-		try: tzid = event.exdate.tzid_param
-		except AttributeError: tzid = ''
 
 		del event.contents[u'exdate']
 
 		for date in dates:
+			print date
+			if isinstance(date, datetime):
+				if date.tzinfo is None: date = date.replace(tzinfo = default)
+				date = date.astimezone(vobject.icalendar.utc)
+			print date
 			entry = event.add(u'exdate')
 			entry.value = [date]
-			if tzid: entry.tzid_param = tzid
 
 	return cal
+
+def utcise(cal):
+	'''Removing local timezones in favour of UTC'''
+
+	from datetime import datetime
+	from pytz import timezone
+
+	default = timezone('Australia/Perth')
+
+	for event in cal.vevent_list:
+		dtstart = getattr(event, 'dtstart', None)
+		dtend = getattr(event, 'dtend', None)
+
+		for i in (dtstart, dtend):
+			if not i: continue
+			dt = i.value
+			if isinstance(dt, datetime):
+				if dt.tzinfo is None: dt = dt.replace(tzinfo = default)
+				i.value = dt.astimezone(vobject.icalendar.utc)
+
+	return cal
+
+def unwantedParams(cal):
+	'''Removing unwanted parameters'''
+
+	blklist = [
+		"LANGUAGE",
+		"X-VOBJ-ORIGINAL-TZID",
+		"TZID"
+	]
+
+	for event in cal.vevent_list:
+		for attr in event.contents:
+			attr = getattr(event, attr)
+			try:
+				for i in blklist:
+					while i in attr.params: del attr.params[i]
+			except AttributeError: continue
+
+	return cal
+
