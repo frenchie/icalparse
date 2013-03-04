@@ -1,0 +1,13 @@
+AddHandler cgi-script .pl .py .cgi
+Options ExecCgi
+Options -Indexes
+
+<Files icalparse.py>
+	order allow,deny
+	deny from all
+</Files>
+
+<Files parserrules.py>
+	order allow,deny
+	deny from all
+</Files>
