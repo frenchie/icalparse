@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (c) 2011 James French <frenchie@frenchie.id.au>
+# Copyright (c) 2013 James French <frenchie@frenchie.id.au>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -20,9 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import sys
-import urlparse
-import os
+import sys, os
+import urlparse 
 import vobject
 from cgi import parse_header
 
@@ -137,6 +136,7 @@ def applyRules(cal, rules=[], verbose=False):
 
 	return cal
 
+
 def writeOutput(cal, outfile=''):
 	'''Takes a list of lines and outputs to the specified file'''
 
@@ -157,17 +157,13 @@ def writeOutput(cal, outfile=''):
 
 	if not out == sys.stdout:
 		out.close()
-		
-def exitQuiet(exitstate=0):
-	'''When called as a CGI script, exit quietly if theres any errors'''
-	print('Content-Type: text/html\n')
-	sys.exit(exitstate)
-	
+
+
 def runLocal():
 	'''Main run function if this script is called locally'''
-	
+
 	from optparse import OptionParser
-	
+
 	parser = OptionParser('usage: %prog [options] url')
 	parser.add_option('-s', '--stdin', action='store_true', dest='stdin',
 		default=False, help='Take a calendar from standard input')
@@ -178,12 +174,12 @@ def runLocal():
 	parser.add_option('-m','--encoding', dest='encoding', default='',
 		help='Specify a different character encoding'
 		'(ignored if the remote server also specifies one)')
-	parser.add_option('-t','--timezone', dest='timezone', default=ruleConfig["defaultTZ"],
+	parser.add_option('-t','--timezone', dest='timezone', default='',
 		help='Specify a timezone to use if the remote calendar doesn\'t set it properly')
-	
+
 	(options, args) = parser.parse_args()
-	ruleConfig["defaultTZ"] = options.timezone
-	
+	ruleConfig["defaultTZ"] = options.timezone or ruleConfig["defaultTZ"]
+
 	# If the user passed us a 'stdin' argument, we'll go with that,
 	# otherwise we'll try for a url opener
 	if not args and not options.stdin:
@@ -202,11 +198,59 @@ def runLocal():
 
 	writeOutput(cal, options.outfile)
 
-	
+
+def exitQuiet(exitstate=0):
+    '''When called as a CGI script, exit quietly if theres any errors'''
+    print('Content-Type: text/html\n')
+    sys.exit(exitstate)
+
+
 def runCGI():
-	'''Main run function if this script is called as a CGI script'''
-	pass
-	
+    '''Main run function if this script is called as a CGI script'''
+    import cgi
+    import re
+    import cgitb; cgitb.enable()
+    
+    form = cgi.FieldStorage()
+    if "uid" not in form or "key" not in form:
+        print('Content-Type: text/calendar\n')
+        sys.exit(0)
+    try:
+        # UID should be numeric, if it's not we have someone playing games
+        uid = int(form['uid'].value)
+    except:
+        exitQuiet()
+
+    # The user's key will be a 16 character string
+    key = form['key'].value
+    re.search('[&?]+', key) and exitQuiet()
+    len(key) == 16 or exitQuiet()
+    
+    # Historically facebook has been notoriously bad at setting timzeones
+    # in their stuff so this should be a user setting. If it is set in
+    # their calendar it'll  be used otherwise if the user feeds crap or
+    # nothing just assume they want Australia/Perth
+    tz = ""
+    if "tz" in form:
+        from pytz import timezone
+        try:
+            timezone(form['tz'].value)
+            tz = form['tz'].value
+        except: pass
+    
+    ruleConfig["defaultTZ"] = tz or ruleConfig["defaultTZ"]
+                
+    # Okay, we're happy that the input is sane, lets serve up some data
+    url = 'http://www.facebook.com/ical/u.php?uid=%d&key=%s'%(uid,key)
+    (content, encoding) = getHTTPContent(url)
+
+    cal = vobject.readOne(unicode(content, encoding))
+    cal = applyRules(cal, generateRules(ruleConfig), False)
+
+    print('Content-Type: text/calendar; charset=%s\n'%encoding)
+    icalparse.writeOutput(cal)
+    
+
 if __name__ == '__main__':
 	# Ensure the rules process using the desired timezone
 	ruleConfig = {}
