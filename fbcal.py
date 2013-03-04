@@ -42,9 +42,9 @@ if __name__ == '__main__':
 	except:
 		exitQuiet()
 
-	# The user's key will be a 16 character alphanumeric string
+	# The user's key will be a 16 character string
 	key = form['key'].value
-	re.search('[\W_]+', key) and exitQuiet()
+	re.search('[&?]+', key) and exitQuiet()
 	len(key) == 16 or exitQuiet()
 
 	# Okay, we're happy that the input is sane, lets serve up some data
