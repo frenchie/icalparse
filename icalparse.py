@@ -26,7 +26,6 @@ import os
 import vobject
 from cgi import parse_header
 
-
 def getContent(url='',stdin=False):
 	'''Generic content retriever, DO NOT use this function in a CGI script as
 	it can read from the local disk (which you probably don't want it to).
@@ -158,12 +157,17 @@ def writeOutput(cal, outfile=''):
 
 	if not out == sys.stdout:
 		out.close()
-
-if __name__ == '__main__':
-	# Only load options parsing if this script was called directly, skip it
-	# if it's being called as a module.
+		
+def exitQuiet(exitstate=0):
+	'''When called as a CGI script, exit quietly if theres any errors'''
+	print('Content-Type: text/html\n')
+	sys.exit(exitstate)
+	
+def runLocal():
+	'''Main run function if this script is called locally'''
+	
 	from optparse import OptionParser
-
+	
 	parser = OptionParser('usage: %prog [options] url')
 	parser.add_option('-s', '--stdin', action='store_true', dest='stdin',
 		default=False, help='Take a calendar from standard input')
@@ -174,15 +178,12 @@ if __name__ == '__main__':
 	parser.add_option('-m','--encoding', dest='encoding', default='',
 		help='Specify a different character encoding'
 		'(ignored if the remote server also specifies one)')
-	parser.add_option('-t','--timezone', dest='timezone', default='Australia/Perth',
+	parser.add_option('-t','--timezone', dest='timezone', default=ruleConfig["defaultTZ"],
 		help='Specify a timezone to use if the remote calendar doesn\'t set it properly')
-
+	
 	(options, args) = parser.parse_args()
-
-	# Ensure the rules process using the desired timezone
-	ruleConfig = {}
 	ruleConfig["defaultTZ"] = options.timezone
-
+	
 	# If the user passed us a 'stdin' argument, we'll go with that,
 	# otherwise we'll try for a url opener
 	if not args and not options.stdin:
@@ -200,3 +201,19 @@ if __name__ == '__main__':
 	cal = applyRules(cal, generateRules(ruleConfig), options.verbose)
 
 	writeOutput(cal, options.outfile)
+
+	
+def runCGI():
+	'''Main run function if this script is called as a CGI script'''
+	pass
+	
+if __name__ == '__main__':
+	# Ensure the rules process using the desired timezone
+	ruleConfig = {}
+	ruleConfig["defaultTZ"] = 'Australia/Perth'
+
+	# Detect if this script has been called by CGI and proceed accordingly
+	if 'REQUEST_METHOD' in os.environ:
+		runCGI()
+	else:
+		runLocal()
