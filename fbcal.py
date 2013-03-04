@@ -69,5 +69,5 @@ if __name__ == '__main__':
 	cal = vobject.readOne(unicode(content, encoding))
 	cal = icalparse.applyRules(cal, icalparse.generateRules(ruleConfig), False)
 
-	print('Content-Type: text/html; charset=%s\n'%encoding)
+	print('Content-Type: text/calendar; charset=%s\n'%encoding)
 	icalparse.writeOutput(cal)
