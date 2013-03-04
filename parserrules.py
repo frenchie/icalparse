@@ -60,6 +60,47 @@ def whatPrivacy(cal):
 
 	return cal
 
+def dropAttributes(cal):
+	'''Removing unwanted metadata'''
+
+	eventBlacklist = [x.lower() for x in [
+		"X-ALT-DESC",
+		"X-MICROSOFT-CDO-BUSYSTATUS",
+		"X-MICROSOFT-CDO-IMPORTANCE",
+		"X-MICROSOFT-DISALLOW-COUNTER",
+		"X-MS-OLK-ALLOWEXTERNCHECK",
+		"X-MS-OLK-AUTOSTARTCHECK",
+		"X-MS-OLK-CONFTYPE",
+		"X-MS-OLK-AUTOFILLLOCATION",
+		"TRANSP",
+		"SEQUENCE",
+		"PRIORITY"
+	]]
+
+	mainBlacklist = [x.lower() for x in [
+		"X-CLIPSTART",
+		"X-CALSTART",
+		"X-OWNER",
+		"X-MS-OLK-WKHRSTART",
+		"X-MS-OLK-WKHREND",
+		"X-WR-RELCALID",
+		"X-MS-OLK-WKHRDAYS",
+		"X-MS-OLK-APPTSEQTIME",
+		"X-CLIPEND",
+		"X-CALEND",
+		"VTIMEZONE",
+		"X-PRIMARY-CALENDAR"
+	]]
+
+	for event in cal.vevent_list:
+		for blacklist in eventBlacklist:
+			if event.contents.has_key(blacklist): del event.contents[blacklist]
+
+	for blkl in mainBlacklist:
+		while blkl in cal.contents: del cal.contents[blkl]
+
+	return cal
+
 def exDate(cal):
 	'''Replacing multi-value EXDATES with multiple single-value EXDATES'''
 
