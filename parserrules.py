@@ -28,6 +28,9 @@
 
 import vobject
 
+ruleConfig = {}
+ruleConfig["defaultTZ"] = "UTC"
+
 def facebookOrganiser(cal):
 	'''Adds organiser details to the body of facebook calendars.'''
 
@@ -104,8 +107,7 @@ def exDate(cal):
 	from datetime import datetime
 	from pytz import timezone
 
-	default = timezone('Australia/Perth')
-
+	default = timezone(ruleConfig["defaultTZ"])
 
 	for event in cal.vevent_list:
 		if not event.contents.has_key(u'exdate'): continue
@@ -123,12 +125,13 @@ def exDate(cal):
 	return cal
 
 def utcise(cal):
-	'''Removing local timezones in favour of UTC'''
+	'''Removing local timezones in favour of UTC. If the remote calendar specifies a timezone
+	then use it, otherwise assume it's in the user-specified or default values'''
 
 	from datetime import datetime
 	from pytz import timezone
 
-	default = timezone('Australia/Perth')
+	default = timezone(ruleConfig["defaultTZ"])
 
 	for event in cal.vevent_list:
 		dtstart = getattr(event, 'dtstart', None)
@@ -163,7 +166,8 @@ def unwantedParams(cal):
 	return cal
 
 def exDate(cal):
-	'''Changes multi-EXDATE into singles (apple can't obey even simple specs)'''
+	'''Changes multi-EXDATE into singles (apple can't obey even simple specs).
+	If the remote calendar specifies a timezone then use it, otherwise use the user specified value'''
 
 	for event in cal.vevent_list:
 		if not event.contents.has_key(u'exdate'): continue
