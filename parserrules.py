@@ -164,22 +164,3 @@ def unwantedParams(cal):
 			except AttributeError: continue
 
 	return cal
-
-def exDate(cal):
-	'''Changes multi-EXDATE into singles (apple can't obey even simple specs).
-	If the remote calendar specifies a timezone then use it, otherwise use the user specified value'''
-
-	for event in cal.vevent_list:
-		if not event.contents.has_key(u'exdate'): continue
-		dates = event.exdate.value
-		try: tzid = event.exdate.tzid_param
-		except AttributeError: tzid = ''
-
-		del event.contents[u'exdate']
-
-		for date in dates:
-			entry = event.add(u'exdate')
-			entry.value = [date]
-			if tzid: entry.tzid_param = tzid
-
-	return cal
