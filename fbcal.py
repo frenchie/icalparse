@@ -22,23 +22,33 @@
 
 import sys
 import cgi
+import vobject
 import icalparse
+import re
 #import cgitb; cgitb.enable()
 
-form = cgi.FieldStorage()
+def exitQuiet(exitstate=0):
+	print('Content-Type: text/html\n')
+	sys.exit(exitstate)
 
 if __name__ == '__main__':
+	form = cgi.FieldStorage()
 	if "uid" not in form or "key" not in form:
 		print('Content-Type: text/html\n')
 		sys.exit(0)
 	try:
+		# UID should be numeric, if it's not we have someone playing games
 		uid = int(form['uid'].value)
-		key = int(form['key'].value)
 	except:
-		print('Content-Type: text/html\n')
-		sys.exit(0)
+		exitQuiet()
 
-	url = 'http://www.facebook.com/ical/u.php?uid=%s&key=%s'%(uid,key)
+	# The user's key will be a 16 character alphanumeric string
+	key = form['key'].value
+	re.search('[\W_]+', key) and exitQuiet()
+	len(key) == 16 or exitQuiet()
+
+	# Okay, we're happy that the input is sane, lets serve up some data
+	url = 'http://www.facebook.com/ical/u.php?uid=%d&key=%s'%(uid,key)
 	(content, encoding) = icalparse.getHTTPContent(url)
 
 	cal = vobject.readOne(unicode(content, encoding))
