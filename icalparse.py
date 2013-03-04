@@ -206,11 +206,14 @@ def exitQuiet(exitstate=0):
 
 
 def runCGI():
-    '''Main run function if this script is called as a CGI script'''
+    '''Main run function if this script is called as a CGI script
+    to process facebook ical files'''
     import cgi
     import re
     import cgitb; cgitb.enable()
     
+    ruleConfig["facebook"] = True
+
     form = cgi.FieldStorage()
     if "uid" not in form or "key" not in form:
         print('Content-Type: text/calendar\n')
@@ -248,7 +251,7 @@ def runCGI():
     cal = applyRules(cal, generateRules(ruleConfig), False)
 
     print('Content-Type: text/calendar; charset=%s\n'%encoding)
-    icalparse.writeOutput(cal)
+    writeOutput(cal)
     
 
 if __name__ == '__main__':

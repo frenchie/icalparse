@@ -62,6 +62,8 @@ def whatPrivacy(cal):
 
 def dropAttributes(cal):
 	'''Removing unwanted metadata'''
+	if "facebook" in ruleConfig:
+		if ruleConfig["facebook"] == True: return cal
 
 	eventBlacklist = [x.lower() for x in [
 		"X-ALT-DESC",
@@ -103,6 +105,8 @@ def dropAttributes(cal):
 
 def exDate(cal):
 	'''Replacing multi-value EXDATES with multiple single-value EXDATES'''
+	if "facebook" in ruleConfig:
+		if ruleConfig["facebook"] == True: return cal
 
 	from datetime import datetime
 	from pytz import timezone
