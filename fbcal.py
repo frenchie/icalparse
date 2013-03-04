@@ -25,7 +25,7 @@ import cgi
 import vobject
 import icalparse
 import re
-#import cgitb; cgitb.enable()
+import cgitb; cgitb.enable()
 
 def exitQuiet(exitstate=0):
 	print('Content-Type: text/html\n')
@@ -46,13 +46,28 @@ if __name__ == '__main__':
 	key = form['key'].value
 	re.search('[&?]+', key) and exitQuiet()
 	len(key) == 16 or exitQuiet()
-
+	
+	# Historically facebook has been notoriously bad at setting timzeones
+	# in their stuff so this should be a user setting. If it is set in
+	# their calendar it'll  be used otherwise if the user feeds crap or
+	# nothing just assume they want Australia/Perth
+	tz = ""
+	if "tz" in form:
+		from pytz import timezone
+		try:
+			timezone(form['tz'].value)
+			tz = form['tz'].value
+		except: pass
+	
+	ruleConfig = {}
+	ruleConfig["defaultTZ"] = tz or "Australia/Perth"
+				
 	# Okay, we're happy that the input is sane, lets serve up some data
 	url = 'http://www.facebook.com/ical/u.php?uid=%d&key=%s'%(uid,key)
 	(content, encoding) = icalparse.getHTTPContent(url)
 
 	cal = vobject.readOne(unicode(content, encoding))
-	cal = icalparse.applyRules(cal, icalparse.generateRules(), False)
+	cal = icalparse.applyRules(cal, icalparse.generateRules(ruleConfig), False)
 
-	print('Content-Type: text/calendar; charset=%s\n'%encoding)
+	print('Content-Type: text/html; charset=%s\n'%encoding)
 	icalparse.writeOutput(cal)
