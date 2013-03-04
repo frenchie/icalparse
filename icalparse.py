@@ -116,12 +116,15 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
 	return (content, encoding)
 
 
-def generateRules():
+def generateRules(ruleConfig):
 	'''Attempts to load a series of rules into a list'''
 	try:
 		import parserrules
 	except ImportError:
 		return []
+
+	for conf in ruleConfig:
+		parserrules.ruleConfig[conf] = ruleConfig[conf]
 
 	rules = [getattr(parserrules, rule) for rule in dir(parserrules) if callable(getattr(parserrules, rule))]
 	return rules
@@ -157,9 +160,9 @@ def writeOutput(cal, outfile=''):
 		out.close()
 
 if __name__ == '__main__':
+	# Only load options parsing if this script was called directly, skip it
+	# if it's being called as a module.
 	from optparse import OptionParser
-	# If the user passed us a 'stdin' argument, we'll go with that,
-	# otherwise we'll try for a url opener
 
 	parser = OptionParser('usage: %prog [options] url')
 	parser.add_option('-s', '--stdin', action='store_true', dest='stdin',
@@ -171,9 +174,17 @@ if __name__ == '__main__':
 	parser.add_option('-m','--encoding', dest='encoding', default='',
 		help='Specify a different character encoding'
 		'(ignored if the remote server also specifies one)')
+	parser.add_option('-t','--timezone', dest='timezone', default='Australia/Perth',
+		help='Specify a timezone to use if the remote calendar doesn\'t set it properly')
 
 	(options, args) = parser.parse_args()
 
+	# Ensure the rules process using the desired timezone
+	ruleConfig = {}
+	ruleConfig["defaultTZ"] = options.timezone
+
+	# If the user passed us a 'stdin' argument, we'll go with that,
+	# otherwise we'll try for a url opener
 	if not args and not options.stdin:
 		parser.print_usage()
 		sys.exit(0)
@@ -186,6 +197,6 @@ if __name__ == '__main__':
 	encoding = encoding or options.encoding or 'utf-8'
 
 	cal = vobject.readOne(unicode(content, encoding))
-	cal = applyRules(cal, generateRules(), options.verbose)
+	cal = applyRules(cal, generateRules(ruleConfig), options.verbose)
 
 	writeOutput(cal, options.outfile)
