@@ -25,7 +25,7 @@ import cgi
 import vobject
 import icalparse
 import re
-import cgitb; cgitb.enable()
+#import cgitb; cgitb.enable()
 
 def exitQuiet(exitstate=0):
 	print('Content-Type: text/html\n')
