@@ -21,7 +21,7 @@
 # THE SOFTWARE.
 
 import sys, os
-import urlparse 
+import urlparse
 import vobject
 from cgi import parse_header
 
@@ -200,59 +200,59 @@ def runLocal():
 
 
 def exitQuiet(exitstate=0):
-    '''When called as a CGI script, exit quietly if theres any errors'''
-    print('Content-Type: text/html\n')
-    sys.exit(exitstate)
+	'''When called as a CGI script, exit quietly if theres any errors'''
+	print('Content-Type: text/html\n')
+	sys.exit(exitstate)
 
 
 def runCGI():
-    '''Main run function if this script is called as a CGI script
-    to process facebook ical files'''
-    import cgi
-    import re
-    import cgitb; cgitb.enable()
-    
-    ruleConfig["facebook"] = True
+	'''Main run function if this script is called as a CGI script
+	to process facebook ical files'''
+	import cgi
+	import re
+	import cgitb; cgitb.enable()
 
-    form = cgi.FieldStorage()
-    if "uid" not in form or "key" not in form:
-        print('Content-Type: text/calendar\n')
-        sys.exit(0)
-    try:
-        # UID should be numeric, if it's not we have someone playing games
-        uid = int(form['uid'].value)
-    except:
-        exitQuiet()
+	ruleConfig["facebook"] = True
 
-    # The user's key will be a 16 character string
-    key = form['key'].value
-    re.search('[&?]+', key) and exitQuiet()
-    len(key) == 16 or exitQuiet()
-    
-    # Historically facebook has been notoriously bad at setting timzeones
-    # in their stuff so this should be a user setting. If it is set in
-    # their calendar it'll  be used otherwise if the user feeds crap or
-    # nothing just assume they want Australia/Perth
-    tz = ""
-    if "tz" in form:
-        from pytz import timezone
-        try:
-            timezone(form['tz'].value)
-            tz = form['tz'].value
-        except: pass
-    
-    ruleConfig["defaultTZ"] = tz or ruleConfig["defaultTZ"]
-                
-    # Okay, we're happy that the input is sane, lets serve up some data
-    url = 'http://www.facebook.com/ical/u.php?uid=%d&key=%s'%(uid,key)
-    (content, encoding) = getHTTPContent(url)
+	form = cgi.FieldStorage()
+	if "uid" not in form or "key" not in form:
+		print('Content-Type: text/calendar\n')
+		sys.exit(0)
+	try:
+		# UID should be numeric, if it's not we have someone playing games
+		uid = int(form['uid'].value)
+	except:
+		exitQuiet()
 
-    cal = vobject.readOne(unicode(content, encoding))
-    cal = applyRules(cal, generateRules(ruleConfig), False)
+	# The user's key will be a 16 character string
+	key = form['key'].value
+	re.search('[&?]+', key) and exitQuiet()
+	len(key) == 16 or exitQuiet()
 
-    print('Content-Type: text/calendar; charset=%s\n'%encoding)
-    writeOutput(cal)
-    
+	# Historically facebook has been notoriously bad at setting timzeones
+	# in their stuff so this should be a user setting. If it is set in
+	# their calendar it'll  be used otherwise if the user feeds crap or
+	# nothing just assume they want Australia/Perth
+	tz = ""
+	if "tz" in form:
+		from pytz import timezone
+		try:
+			timezone(form['tz'].value)
+			tz = form['tz'].value
+		except: pass
+
+	ruleConfig["defaultTZ"] = tz or ruleConfig["defaultTZ"]
+
+	# Okay, we're happy that the input is sane, lets serve up some data
+	url = 'http://www.facebook.com/ical/u.php?uid=%d&key=%s'%(uid,key)
+	(content, encoding) = getHTTPContent(url)
+
+	cal = vobject.readOne(unicode(content, encoding))
+	cal = applyRules(cal, generateRules(ruleConfig), False)
+
+	print('Content-Type: text/calendar; charset=%s\n'%encoding)
+	writeOutput(cal)
+
 
 if __name__ == '__main__':
 	# Ensure the rules process using the desired timezone
