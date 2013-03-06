@@ -201,7 +201,7 @@ def runLocal():
 
 def exitQuiet(exitstate=0):
 	'''When called as a CGI script, exit quietly if theres any errors'''
-	print('Content-Type: text/html\n')
+	print('Content-Type: text/calendar\n')
 	sys.exit(exitstate)
 
 
@@ -210,14 +210,13 @@ def runCGI():
 	to process facebook ical files'''
 	import cgi
 	import re
-	import cgitb; cgitb.enable()
+	#import cgitb; cgitb.enable()
 
 	ruleConfig["facebook"] = True
 
 	form = cgi.FieldStorage()
 	if "uid" not in form or "key" not in form:
-		print('Content-Type: text/calendar\n')
-		sys.exit(0)
+		exitQuiet()
 	try:
 		# UID should be numeric, if it's not we have someone playing games
 		uid = int(form['uid'].value)
