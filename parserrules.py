@@ -32,139 +32,139 @@ ruleConfig = {}
 ruleConfig["defaultTZ"] = "UTC"
 
 def facebookOrganiser(cal):
-	'''Adds organiser details to the body of facebook calendars.'''
+    '''Adds organiser details to the body of facebook calendars.'''
 
-	if cal.contents.has_key(u'prodid'):
-		if not "Facebook" in cal.prodid.value: return cal
+    if cal.contents.has_key(u'prodid'):
+        if not "Facebook" in cal.prodid.value: return cal
 
-	for event in cal.vevent_list:
-		if not event.contents.has_key(u'organizer'): continue
-		try:
-			a = event.organizer.cn_paramlist
-			organizer = "Organised by: " + event.organizer.cn_param + " ("
-			organizer += event.organizer.value.lstrip('MAILTO:') + ")\n\n"
-			event.description.value = organizer + event.description.value
-		except AttributeError:
-			organizer = "Organized by: " + event.organizer.value
-			event.description.value = organizer + "\n\n" + event.description.value
-	return cal
+    for event in cal.vevent_list:
+        if not event.contents.has_key(u'organizer'): continue
+        try:
+            a = event.organizer.cn_paramlist
+            organizer = "Organised by: " + event.organizer.cn_param + " ("
+            organizer += event.organizer.value.lstrip('MAILTO:') + ")\n\n"
+            event.description.value = organizer + event.description.value
+        except AttributeError:
+            organizer = "Organized by: " + event.organizer.value
+            event.description.value = organizer + "\n\n" + event.description.value
+    return cal
 
 def whatPrivacy(cal):
-	'''Marks events public so google calendar doesn't have a sad about them.'''
+    '''Marks events public so google calendar doesn't have a sad about them.'''
 
-	for event in cal.vevent_list:
-		if event.contents.has_key(u'class'):
-			# Bit of a hack as class is a reserved word in python
-			del event.contents[u'class']
-			event.add('class').value = "PUBLIC"
+    for event in cal.vevent_list:
+        if event.contents.has_key(u'class'):
+            # Bit of a hack as class is a reserved word in python
+            del event.contents[u'class']
+            event.add('class').value = "PUBLIC"
 
-	return cal
+    return cal
 
 def dropAttributes(cal):
-	'''Removing unwanted metadata'''
-	if "facebook" in ruleConfig:
-		if ruleConfig["facebook"] == True: return cal
+    '''Removing unwanted metadata'''
+    if "facebook" in ruleConfig:
+        if ruleConfig["facebook"] == True: return cal
 
-	eventBlacklist = [x.lower() for x in [
-		"X-ALT-DESC",
-		"X-MICROSOFT-CDO-BUSYSTATUS",
-		"X-MICROSOFT-CDO-IMPORTANCE",
-		"X-MICROSOFT-DISALLOW-COUNTER",
-		"X-MS-OLK-ALLOWEXTERNCHECK",
-		"X-MS-OLK-AUTOSTARTCHECK",
-		"X-MS-OLK-CONFTYPE",
-		"X-MS-OLK-AUTOFILLLOCATION",
-		"TRANSP",
-		"SEQUENCE",
-		"PRIORITY"
-	]]
+    eventBlacklist = [x.lower() for x in [
+        "X-ALT-DESC",
+        "X-MICROSOFT-CDO-BUSYSTATUS",
+        "X-MICROSOFT-CDO-IMPORTANCE",
+        "X-MICROSOFT-DISALLOW-COUNTER",
+        "X-MS-OLK-ALLOWEXTERNCHECK",
+        "X-MS-OLK-AUTOSTARTCHECK",
+        "X-MS-OLK-CONFTYPE",
+        "X-MS-OLK-AUTOFILLLOCATION",
+        "TRANSP",
+        "SEQUENCE",
+        "PRIORITY"
+    ]]
 
-	mainBlacklist = [x.lower() for x in [
-		"X-CLIPSTART",
-		"X-CALSTART",
-		"X-OWNER",
-		"X-MS-OLK-WKHRSTART",
-		"X-MS-OLK-WKHREND",
-		"X-WR-RELCALID",
-		"X-MS-OLK-WKHRDAYS",
-		"X-MS-OLK-APPTSEQTIME",
-		"X-CLIPEND",
-		"X-CALEND",
-		"VTIMEZONE",
-		"X-PRIMARY-CALENDAR"
-	]]
+    mainBlacklist = [x.lower() for x in [
+        "X-CLIPSTART",
+        "X-CALSTART",
+        "X-OWNER",
+        "X-MS-OLK-WKHRSTART",
+        "X-MS-OLK-WKHREND",
+        "X-WR-RELCALID",
+        "X-MS-OLK-WKHRDAYS",
+        "X-MS-OLK-APPTSEQTIME",
+        "X-CLIPEND",
+        "X-CALEND",
+        "VTIMEZONE",
+        "X-PRIMARY-CALENDAR"
+    ]]
 
-	for event in cal.vevent_list:
-		for blacklist in eventBlacklist:
-			if event.contents.has_key(blacklist): del event.contents[blacklist]
+    for event in cal.vevent_list:
+        for blacklist in eventBlacklist:
+            if event.contents.has_key(blacklist): del event.contents[blacklist]
 
-	for blkl in mainBlacklist:
-		while blkl in cal.contents: del cal.contents[blkl]
+    for blkl in mainBlacklist:
+        while blkl in cal.contents: del cal.contents[blkl]
 
-	return cal
+    return cal
 
 def exDate(cal):
-	'''Replacing multi-value EXDATES with multiple single-value EXDATES'''
-	if "facebook" in ruleConfig:
-		if ruleConfig["facebook"] == True: return cal
+    '''Replacing multi-value EXDATES with multiple single-value EXDATES'''
+    if "facebook" in ruleConfig:
+        if ruleConfig["facebook"] == True: return cal
 
-	from datetime import datetime
-	from pytz import timezone
+    from datetime import datetime
+    from pytz import timezone
 
-	default = timezone(ruleConfig["defaultTZ"])
+    default = timezone(ruleConfig["defaultTZ"])
 
-	for event in cal.vevent_list:
-		if not event.contents.has_key(u'exdate'): continue
-		dates = event.exdate.value
+    for event in cal.vevent_list:
+        if not event.contents.has_key(u'exdate'): continue
+        dates = event.exdate.value
 
-		del event.contents[u'exdate']
+        del event.contents[u'exdate']
 
-		for date in dates:
-			if isinstance(date, datetime):
-				if date.tzinfo is None: date = date.replace(tzinfo = default)
-				date = date.astimezone(vobject.icalendar.utc)
-			entry = event.add(u'exdate')
-			entry.value = [date]
+        for date in dates:
+            if isinstance(date, datetime):
+                if date.tzinfo is None: date = date.replace(tzinfo = default)
+                date = date.astimezone(vobject.icalendar.utc)
+            entry = event.add(u'exdate')
+            entry.value = [date]
 
-	return cal
+    return cal
 
 def utcise(cal):
-	'''Removing local timezones in favour of UTC. If the remote calendar specifies a timezone
-	then use it, otherwise assume it's in the user-specified or default values'''
+    '''Removing local timezones in favour of UTC. If the remote calendar specifies a timezone
+    then use it, otherwise assume it's in the user-specified or default values'''
 
-	from datetime import datetime
-	from pytz import timezone
+    from datetime import datetime
+    from pytz import timezone
 
-	default = timezone(ruleConfig["defaultTZ"])
+    default = timezone(ruleConfig["defaultTZ"])
 
-	for event in cal.vevent_list:
-		dtstart = getattr(event, 'dtstart', None)
-		dtend = getattr(event, 'dtend', None)
+    for event in cal.vevent_list:
+        dtstart = getattr(event, 'dtstart', None)
+        dtend = getattr(event, 'dtend', None)
 
-		for i in (dtstart, dtend):
-			if not i: continue
-			dt = i.value
-			if isinstance(dt, datetime):
-				if dt.tzinfo is None: dt = dt.replace(tzinfo = default)
-				i.value = dt.astimezone(vobject.icalendar.utc)
+        for i in (dtstart, dtend):
+            if not i: continue
+            dt = i.value
+            if isinstance(dt, datetime):
+                if dt.tzinfo is None: dt = dt.replace(tzinfo = default)
+                i.value = dt.astimezone(vobject.icalendar.utc)
 
-	return cal
+    return cal
 
 def unwantedParams(cal):
-	'''Removing unwanted parameters'''
+    '''Removing unwanted parameters'''
 
-	blklist = [
-		"LANGUAGE",
-		"X-VOBJ-ORIGINAL-TZID",
-		"TZID"
-	]
+    blklist = [
+        "LANGUAGE",
+        "X-VOBJ-ORIGINAL-TZID",
+        "TZID"
+    ]
 
-	for event in cal.vevent_list:
-		for attr in event.contents:
-			attr = getattr(event, attr)
-			try:
-				for i in blklist:
-					while i in attr.params: del attr.params[i]
-			except AttributeError: continue
+    for event in cal.vevent_list:
+        for attr in event.contents:
+            attr = getattr(event, attr)
+            try:
+                for i in blklist:
+                    while i in attr.params: del attr.params[i]
+            except AttributeError: continue
 
-	return cal
+    return cal
