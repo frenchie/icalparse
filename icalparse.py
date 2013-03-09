@@ -27,14 +27,16 @@ from cgi import parse_header
 import re
 
 def getContent(url='',stdin=False):
-    '''Generic content retriever, DO NOT use this function in a CGI script as
-    it can read from the local disk (which you probably don't want it to).
+    '''Generic URL opening function.
+
+    WARNING: do not call this directly with user input from a CGI script
+    as it will happily open file:// URLs. Escape user input or better still
+    write a function that builds a sandboxed URL based on limited user input
     '''
 
-    encoding = '' # If we don't populate this, the script will assume UTF-8
+    encoding = ''
 
-    # Special case, if this is a HTTP url, return the data from it using
-    # the HTTP functions which attempt to play a bit nicer.
+    # Divert HTTP(s) URLs off to httplib2 (if installed).
     parsedURL = urlparse.urlparse(url)
     if 'http' in parsedURL[0]: return getHTTPContent(url)
 
@@ -64,8 +66,11 @@ def getContent(url='',stdin=False):
 
 
 def getHTTPContent(url='',cache='.httplib2-cache'):
-    '''This function attempts to play nice when retrieving content from HTTP
-    services. It's what you should use in a CGI script.'''
+    '''Fetches content from a HTTP(s) server using httplib2 if installed.
+    Caching will be used where possible with graceful fallback if not. This
+    function will also gracefully fall back to urllib2 if httplib2 is not
+    currently installed.
+    '''
 
     try:
         import httplib2
@@ -76,8 +81,9 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
 
     if not 'http' in urlparse.urlparse(url)[0]: return ('','')
 
+    # If the cache is not writeable, drop back to uncached
     if 'httplib2' in sys.modules:
-        try: h = httplib2.Http('.httplib2-cache')
+        try: h = httplib2.Http(cache)
         except OSError: h = httplib2.Http()
     else: h = False
 
@@ -97,7 +103,6 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
         else:
             ct = ''
             encoding = ''
-
     else:
         try:
             req = urllib2.urlopen(url)
@@ -127,6 +132,7 @@ def generateRules(ruleConfig):
 
     rules = [ getattr(parserrules, rule) for rule in dir(parserrules) if
             '__call__' in dir(rule) ]
+
     return rules
 
 
@@ -177,12 +183,12 @@ def runLocal():
         help='Specify a different character encoding'
         '(ignored if the remote server also specifies one)')
     parser.add_option('-t','--timezone', dest='timezone', default='',
-        help='Specify a timezone to use if the remote calendar doesn\'t set it properly')
+        help='Specify a timezone to use if the remote calendar doesn\'t '
+        'set it properly')
 
     (options, args) = parser.parse_args()
 
-    # If the user passed us a 'stdin' argument, we'll go with that,
-    # otherwise we'll try for a url opener
+    # Use stdin if requested, otherwise open a url
     if not args and not options.stdin:
         parser.print_usage()
         sys.exit(0)
@@ -207,8 +213,7 @@ def exitQuiet(exitstate=0):
 
 
 def runCGI():
-    '''Main run function if this script is called as a CGI script
-    to process facebook ical files'''
+    '''Function called when run as a CGI script. Processes Facebook calendars'''
     import cgi
     #import cgitb; cgitb.enable()
 
