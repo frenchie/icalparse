@@ -24,6 +24,7 @@ import sys, os
 import urlparse
 import vobject
 from cgi import parse_header
+from types import FunctionType
 import re
 
 def getContent(url='',stdin=False):
@@ -71,6 +72,8 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
     function will also gracefully fall back to urllib2 if httplib2 is not
     currently installed.
     '''
+
+    encoding = ''
 
     try:
         import httplib2
@@ -121,7 +124,9 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
 
 
 def generateRules():
-    '''Attempts to load a series of rules into a list
+    '''Attempts to load a series of rules into a list. This function is smarter
+    than the average bear and will ignore modules and functions imported into
+    the rules file.
     '''
 
     try:
@@ -129,8 +134,8 @@ def generateRules():
     except ImportError:
         return []
 
-    rules = [ getattr(parserrules, rule) for rule in dir(parserrules) if
-            '__call__' in dir(rule) ]
+    rules = [ getattr(parserrules, rule) for rule in dir(parserrules)
+            if type(rule) is FunctionType and rule.__module__ == "parserrules" ]
 
     return rules
 
@@ -223,7 +228,6 @@ def runCGI():
     import cgi
     #import cgitb; cgitb.enable()
 
-
     form = cgi.FieldStorage()
     if "uid" not in form or "key" not in form:
         exitQuiet()
@@ -243,7 +247,12 @@ def runCGI():
     (content, encoding) = getHTTPContent(url)
 
     cal = vobject.readOne(unicode(content, encoding))
-    cal = applyRules(cal, generateRules(), False)
+
+    # We want our rules to be Facebook Specific
+    #rules = [ rule for rule in generateRules() if "facebook" in dir(rule)
+    #        and rule.facebook ]
+
+    cal = applyRules(cal, rules, False)
 
     print('Content-Type: text/calendar; charset=%s\n'%encoding)
     writeOutput(cal)
