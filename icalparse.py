@@ -24,6 +24,7 @@ import sys, os
 import urlparse
 import vobject
 from cgi import parse_header
+import re
 
 def getContent(url='',stdin=False):
     '''Generic content retriever, DO NOT use this function in a CGI script as
@@ -124,7 +125,8 @@ def generateRules(ruleConfig):
     for conf in ruleConfig:
         parserrules.ruleConfig[conf] = ruleConfig[conf]
 
-    rules = [getattr(parserrules, rule) for rule in dir(parserrules) if callable(getattr(parserrules, rule))]
+    rules = [ getattr(parserrules, rule) for rule in dir(parserrules) if
+            '__call__' in dir(rule) ]
     return rules
 
 
@@ -178,7 +180,6 @@ def runLocal():
         help='Specify a timezone to use if the remote calendar doesn\'t set it properly')
 
     (options, args) = parser.parse_args()
-    ruleConfig["defaultTZ"] = options.timezone or ruleConfig["defaultTZ"]
 
     # If the user passed us a 'stdin' argument, we'll go with that,
     # otherwise we'll try for a url opener
@@ -209,7 +210,6 @@ def runCGI():
     '''Main run function if this script is called as a CGI script
     to process facebook ical files'''
     import cgi
-    import re
     #import cgitb; cgitb.enable()
 
     ruleConfig["facebook"] = True
@@ -228,20 +228,6 @@ def runCGI():
     re.search('[&?]+', key) and exitQuiet()
     len(key) == 16 or exitQuiet()
 
-    # Historically facebook has been notoriously bad at setting timzeones
-    # in their stuff so this should be a user setting. If it is set in
-    # their calendar it'll  be used otherwise if the user feeds crap or
-    # nothing just assume they want Australia/Perth
-    tz = ""
-    if "tz" in form:
-        from pytz import timezone
-        try:
-            timezone(form['tz'].value)
-            tz = form['tz'].value
-        except: pass
-
-    ruleConfig["defaultTZ"] = tz or ruleConfig["defaultTZ"]
-
     # Okay, we're happy that the input is sane, lets serve up some data
     url = 'http://www.facebook.com/ical/u.php?uid=%d&key=%s'%(uid,key)
     (content, encoding) = getHTTPContent(url)
@@ -252,11 +238,9 @@ def runCGI():
     print('Content-Type: text/calendar; charset=%s\n'%encoding)
     writeOutput(cal)
 
-
 if __name__ == '__main__':
-    # Ensure the rules process using the desired timezone
+
     ruleConfig = {}
-    ruleConfig["defaultTZ"] = 'Australia/Perth'
 
     # Detect if this script has been called by CGI and proceed accordingly
     if 'REQUEST_METHOD' in os.environ:
