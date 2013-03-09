@@ -120,15 +120,14 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
     return (content, encoding)
 
 
-def generateRules(ruleConfig):
-    '''Attempts to load a series of rules into a list'''
+def generateRules():
+    '''Attempts to load a series of rules into a list
+    '''
+
     try:
         import parserrules
     except ImportError:
         return []
-
-    for conf in ruleConfig:
-        parserrules.ruleConfig[conf] = ruleConfig[conf]
 
     rules = [ getattr(parserrules, rule) for rule in dir(parserrules) if
             '__call__' in dir(rule) ]
@@ -137,7 +136,8 @@ def generateRules(ruleConfig):
 
 
 def applyRules(cal, rules=[], verbose=False):
-    'Runs a series of rules on the lines in ical and mangles its output'
+    '''Runs a series of rules on the lines in ical and mangles its output
+    '''
 
     for rule in rules:
         cal = rule(cal)
@@ -146,7 +146,8 @@ def applyRules(cal, rules=[], verbose=False):
 
 
 def writeOutput(cal, outfile=''):
-    '''Takes a list of lines and outputs to the specified file'''
+    '''Takes a list of lines and outputs to the specified file
+    '''
 
     if not cal:
         sys.stderr.write('Refusing to write out an empty file')
@@ -168,7 +169,8 @@ def writeOutput(cal, outfile=''):
 
 
 def runLocal():
-    '''Main run function if this script is called locally'''
+    '''Main run function if this script is called locally
+    '''
 
     from optparse import OptionParser
 
@@ -201,23 +203,26 @@ def runLocal():
     encoding = encoding or options.encoding or 'utf-8'
 
     cal = vobject.readOne(unicode(content, encoding))
-    cal = applyRules(cal, generateRules(ruleConfig), options.verbose)
+    cal = applyRules(cal, generateRules(), options.verbose)
 
     writeOutput(cal, options.outfile)
 
 
 def exitQuiet(exitstate=0):
-    '''When called as a CGI script, exit quietly if theres any errors'''
+    '''When called as a CGI script, exit quietly if theres any errors
+    '''
+
     print('Content-Type: text/calendar\n')
     sys.exit(exitstate)
 
 
 def runCGI():
-    '''Function called when run as a CGI script. Processes Facebook calendars'''
+    '''Function called when run as a CGI script. Processes Facebook calendars
+    '''
+
     import cgi
     #import cgitb; cgitb.enable()
 
-    ruleConfig["facebook"] = True
 
     form = cgi.FieldStorage()
     if "uid" not in form or "key" not in form:
@@ -238,14 +243,12 @@ def runCGI():
     (content, encoding) = getHTTPContent(url)
 
     cal = vobject.readOne(unicode(content, encoding))
-    cal = applyRules(cal, generateRules(ruleConfig), False)
+    cal = applyRules(cal, generateRules(), False)
 
     print('Content-Type: text/calendar; charset=%s\n'%encoding)
     writeOutput(cal)
 
 if __name__ == '__main__':
-
-    ruleConfig = {}
 
     # Detect if this script has been called by CGI and proceed accordingly
     if 'REQUEST_METHOD' in os.environ:
