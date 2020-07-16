@@ -21,7 +21,7 @@
 # THE SOFTWARE.
 
 import sys, os
-import urllib.parse
+from urllib import (request, error, parse)
 import vobject
 from cgi import parse_header
 
@@ -34,7 +34,7 @@ def getContent(url='',stdin=False):
 
 	# Special case, if this is a HTTP url, return the data from it using
 	# the HTTP functions which attempt to play a bit nicer.
-	parsedURL = urllib.parse.urlparse(url)
+	parsedURL = parse.urlparse(url)
 	if 'http' in parsedURL[0]: return getHTTPContent(url)
 
 	if stdin:
@@ -44,13 +44,12 @@ def getContent(url='',stdin=False):
 	if not parsedURL[0]: url = 'file://' + os.path.abspath(url)
 
 	# If we've survived, use python's generic URL opening library to handle it
-	import urllib.request, urllib.error, urllib.parse
 	try:
-		res = urllib.request.urlopen(url)
+		res = request.urlopen(url)
 		content = res.read()
 		ct = res.info().getplist()
 		res.close()
-	except (urllib.error.URLError, OSError) as e:
+	except (error.URLError, OSError) as e:
 		sys.stderr.write('%s\n'%e)
 		sys.exit(1)
 
@@ -62,21 +61,21 @@ def getContent(url='',stdin=False):
 	return (content, encoding)
 
 
-def getHTTPContent(url='',cache='.httplib2-cache'):
+def getHTTPContent(url=''):
 	'''This function attempts to play nice when retrieving content from HTTP
 	services. It's what you should use in a CGI script.'''
 
 	try:
 		import httplib2
 	except ImportError:
-		import urllib.request, urllib.error, urllib.parse
+            pass
 
 	if not url: return ('','')
 
-	if not 'http' in urllib.parse.urlparse(url)[0]: return ('','')
+	if not 'http' in parse.urlparse(url)[0]: return ('','')
 
 	if 'httplib2' in sys.modules:
-		try: h = httplib2.Http('.httplib2-cache')
+		try: h = httplib2.Http()
 		except OSError: h = httplib2.Http()
 	else: h = False
 
@@ -99,8 +98,8 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
 
 	else:
 		try:
-			req = urllib.request.urlopen(url)
-		except urllib.error.URLError as e:
+			req = request.urlopen(url)
+		except error.URLError as e:
 			sys.stderr.write('%s\n'%e)
 			sys.exit(1)
 
@@ -216,17 +215,18 @@ def runCGI():
 
 	form = cgi.FieldStorage()
 	if "uid" not in form or "key" not in form:
-		print('Content-Type: text/calendar\n')
-		sys.exit(0)
+	    print('Content-Type: text/calendar\n')
+	    sys.exit(0)
 	try:
-		# UID should be numeric, if it's not we have someone playing games
-		uid = int(form['uid'].value)
+	    # UID should be numeric, if it's not we have someone playing games
+	    uid = int(form['uid'].value)
 	except:
-		exitQuiet()
+	    exitQuiet()
 
 	# The user's key will be a 16 character string
 	key = form['key'].value
 	re.search('[&?]+', key) and exitQuiet()
+	len(key) == 16 or exitQuiet()
 
 	# Historically facebook has been notoriously bad at setting timzeones
 	# in their stuff so this should be a user setting. If it is set in
@@ -234,16 +234,16 @@ def runCGI():
 	# nothing just assume they want Australia/Perth
 	tz = ""
 	if "tz" in form:
-		from pytz import timezone
-		try:
-			timezone(form['tz'].value)
-			tz = form['tz'].value
-		except: pass
+	    from pytz import timezone
+	    try:
+                timezone(form['tz'].value)
+                tz = form['tz'].value
+            except: pass
 
 	ruleConfig["defaultTZ"] = tz or ruleConfig["defaultTZ"]
 
 	# Okay, we're happy that the input is sane, lets serve up some data
-	url = 'http://www.facebook.com/ical/u.php?uid=%d&key=%s'%(uid,key)
+	url = 'https://www.facebook.com/events/ical/upcoming/?uid=%s&key=%s'%(uid,key)
 	(content, encoding) = getHTTPContent(url)
 
 	cal = vobject.readOne(str(content, encoding))
