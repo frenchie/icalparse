@@ -68,7 +68,7 @@ def getHTTPContent(url=''):
 	try:
 		import httplib2
 	except ImportError:
-            pass
+		pass
 
 	if not url: return ('','')
 
@@ -124,6 +124,7 @@ def generateRules(ruleConfig):
 		parserrules.ruleConfig[conf] = ruleConfig[conf]
 
 	rules = [getattr(parserrules, rule) for rule in dir(parserrules) if callable(getattr(parserrules, rule))]
+
 	return rules
 
 
@@ -215,13 +216,13 @@ def runCGI():
 
 	form = cgi.FieldStorage()
 	if "uid" not in form or "key" not in form:
-	    print('Content-Type: text/calendar\n')
-	    sys.exit(0)
+		print('Content-Type: text/calendar\n')
+		sys.exit(0)
 	try:
-	    # UID should be numeric, if it's not we have someone playing games
-	    uid = int(form['uid'].value)
+		# UID should be numeric, if it's not we have someone playing games
+		uid = int(form['uid'].value)
 	except:
-	    exitQuiet()
+		exitQuiet()
 
 	# The user's key will be a 16 character string
 	key = form['key'].value
@@ -234,11 +235,11 @@ def runCGI():
 	# nothing just assume they want Australia/Perth
 	tz = ""
 	if "tz" in form:
-	    from pytz import timezone
-	    try:
-                timezone(form['tz'].value)
-                tz = form['tz'].value
-            except: pass
+		from pytz import timezone
+		try:
+			timezone(form['tz'].value)
+			tz = form['tz'].value
+		except: pass
 
 	ruleConfig["defaultTZ"] = tz or ruleConfig["defaultTZ"]
 
