@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright (c) 2013 James French <frenchie@frenchie.id.au>
 #
@@ -21,7 +21,7 @@
 # THE SOFTWARE.
 
 import sys, os
-import urlparse
+import urllib.parse
 import vobject
 from cgi import parse_header
 
@@ -34,7 +34,7 @@ def getContent(url='',stdin=False):
 
 	# Special case, if this is a HTTP url, return the data from it using
 	# the HTTP functions which attempt to play a bit nicer.
-	parsedURL = urlparse.urlparse(url)
+	parsedURL = urllib.parse.urlparse(url)
 	if 'http' in parsedURL[0]: return getHTTPContent(url)
 
 	if stdin:
@@ -44,13 +44,13 @@ def getContent(url='',stdin=False):
 	if not parsedURL[0]: url = 'file://' + os.path.abspath(url)
 
 	# If we've survived, use python's generic URL opening library to handle it
-	import urllib2
+	import urllib.request, urllib.error, urllib.parse
 	try:
-		res = urllib2.urlopen(url)
+		res = urllib.request.urlopen(url)
 		content = res.read()
 		ct = res.info().getplist()
 		res.close()
-	except (urllib2.URLError, OSError), e:
+	except (urllib.error.URLError, OSError) as e:
 		sys.stderr.write('%s\n'%e)
 		sys.exit(1)
 
@@ -69,11 +69,11 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
 	try:
 		import httplib2
 	except ImportError:
-		import urllib2
+		import urllib.request, urllib.error, urllib.parse
 
 	if not url: return ('','')
 
-	if not 'http' in urlparse.urlparse(url)[0]: return ('','')
+	if not 'http' in urllib.parse.urlparse(url)[0]: return ('','')
 
 	if 'httplib2' in sys.modules:
 		try: h = httplib2.Http('.httplib2-cache')
@@ -83,7 +83,7 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
 	if h:
 		try:
 			req = h.request(url)
-		except ValueError, e:
+		except ValueError as e:
 			sys.stderr.write('%s\n'%e)
 			sys.exit(1)
 
@@ -99,8 +99,8 @@ def getHTTPContent(url='',cache='.httplib2-cache'):
 
 	else:
 		try:
-			req = urllib2.urlopen(url)
-		except urllib2.URLError, e:
+			req = urllib.request.urlopen(url)
+		except urllib.error.URLError as e:
 			sys.stderr.write('%s\n'%e)
 			sys.exit(1)
 
@@ -149,7 +149,7 @@ def writeOutput(cal, outfile=''):
 	else:
 		try:
 			out = open(outfile, 'w')
-		except (IOError, OSError), e:
+		except (IOError, OSError) as e:
 			sys.stderr.write('%s\n'%e)
 			sys.exit(1)
 
@@ -193,7 +193,7 @@ def runLocal():
 	(content, encoding) = getContent(url, options.stdin)
 	encoding = encoding or options.encoding or 'utf-8'
 
-	cal = vobject.readOne(unicode(content, encoding))
+	cal = vobject.readOne(str(content, encoding))
 	cal = applyRules(cal, generateRules(ruleConfig), options.verbose)
 
 	writeOutput(cal, options.outfile)
@@ -201,7 +201,7 @@ def runLocal():
 
 def exitQuiet(exitstate=0):
 	'''When called as a CGI script, exit quietly if theres any errors'''
-	print('Content-Type: text/calendar\n')
+	print('Content-Type: text/html\n')
 	sys.exit(exitstate)
 
 
@@ -210,13 +210,14 @@ def runCGI():
 	to process facebook ical files'''
 	import cgi
 	import re
-	#import cgitb; cgitb.enable()
+	import cgitb; cgitb.enable()
 
 	ruleConfig["facebook"] = True
 
 	form = cgi.FieldStorage()
 	if "uid" not in form or "key" not in form:
-		exitQuiet()
+		print('Content-Type: text/calendar\n')
+		sys.exit(0)
 	try:
 		# UID should be numeric, if it's not we have someone playing games
 		uid = int(form['uid'].value)
@@ -226,7 +227,6 @@ def runCGI():
 	# The user's key will be a 16 character string
 	key = form['key'].value
 	re.search('[&?]+', key) and exitQuiet()
-	len(key) == 16 or exitQuiet()
 
 	# Historically facebook has been notoriously bad at setting timzeones
 	# in their stuff so this should be a user setting. If it is set in
@@ -246,10 +246,10 @@ def runCGI():
 	url = 'http://www.facebook.com/ical/u.php?uid=%d&key=%s'%(uid,key)
 	(content, encoding) = getHTTPContent(url)
 
-	cal = vobject.readOne(unicode(content, encoding))
+	cal = vobject.readOne(str(content, encoding))
 	cal = applyRules(cal, generateRules(ruleConfig), False)
 
-	print('Content-Type: text/calendar; charset=%s\n'%encoding)
+	print(('Content-Type: text/calendar; charset=%s\n'%encoding))
 	writeOutput(cal)
 
 
