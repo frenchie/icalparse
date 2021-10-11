@@ -34,11 +34,11 @@ ruleConfig["defaultTZ"] = "UTC"
 def facebookOrganiser(cal):
     '''Adds organiser details to the body of facebook calendars.'''
 
-    if cal.contents.has_key(u'prodid'):
+    if 'prodid' in cal.contents:
         if not "Facebook" in cal.prodid.value: return cal
 
     for event in cal.vevent_list:
-        if not event.contents.has_key(u'organizer'): continue
+        if 'organizer' not in event.contents: continue
         try:
             a = event.organizer.cn_paramlist
             organizer = "Organised by: " + event.organizer.cn_param + " ("
@@ -53,9 +53,9 @@ def whatPrivacy(cal):
     '''Marks events public so google calendar doesn't have a sad about them.'''
 
     for event in cal.vevent_list:
-        if event.contents.has_key(u'class'):
+        if 'class' in event.contents:
             # Bit of a hack as class is a reserved word in python
-            del event.contents[u'class']
+            del event.contents['class']
             event.add('class').value = "PUBLIC"
 
     return cal
@@ -96,7 +96,7 @@ def dropAttributes(cal):
 
     for event in cal.vevent_list:
         for blacklist in eventBlacklist:
-            if event.contents.has_key(blacklist): del event.contents[blacklist]
+            if blacklist in event.contents: del event.contents[blacklist]
 
     for blkl in mainBlacklist:
         while blkl in cal.contents: del cal.contents[blkl]
@@ -114,16 +114,16 @@ def exDate(cal):
     default = timezone(ruleConfig["defaultTZ"])
 
     for event in cal.vevent_list:
-        if not event.contents.has_key(u'exdate'): continue
+        if 'exdate' not in event.contents: continue
         dates = event.exdate.value
 
-        del event.contents[u'exdate']
+        del event.contents['exdate']
 
         for date in dates:
             if isinstance(date, datetime):
                 if date.tzinfo is None: date = date.replace(tzinfo = default)
                 date = date.astimezone(vobject.icalendar.utc)
-            entry = event.add(u'exdate')
+            entry = event.add('exdate')
             entry.value = [date]
 
     return cal
