@@ -177,7 +177,7 @@ def runCGI():
         if not form["service"].value in services:
             exitQuiet()
         sn = form["service"].value
-    else: sn = "outlook"
+    else: sn = "facebook"
 
     service = services[sn]
 
