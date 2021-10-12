@@ -27,6 +27,14 @@ import vobject
 from cgi import parse_header
 from types import FunctionType
 
+debug = False
+
+services = {}
+
+services["outlook"] = { "url": "https://outlook.office365.com/owa/calendar/%s/%s/calendar.ics" }
+services["google"] = { "url": "https://calendar.google.com/calendar/ical/%s/%s/basic.ics" }
+services["facebook"] = { "url": "http://www.facebook.com/ical/u.php?uid=%s&key=%s" }
+
 def getContent(url='',stdin=False):
     '''Generic URL opening function.
 
@@ -65,7 +73,8 @@ def generateRules():
         return []
 
     rules = [ getattr(parserrules, rule) for rule in dir(parserrules) ]
-    rules = [ rule for rule in rules if type(rule) is FunctionType and rule.__module__ == "parserrules" ]
+    rules = [ rule for rule in rules
+        if type(rule) is FunctionType and rule.__module__ == "parserrules" ]
 
     return rules
 
@@ -110,7 +119,9 @@ def runLocal():
     from optparse import OptionParser
 
     parser = OptionParser('usage: %prog [options] url')
-    parser.add_option('-s', '--stdin', action='store_true', dest='stdin',
+    parser.add_option('-s', '--service', action='store_true', dest='service',
+        default=None, help='Specify a service to run rules against')
+    parser.add_option('-i', '--stdin', action='store_true', dest='stdin',
         default=False, help='Take a calendar from standard input')
     parser.add_option('-v', '--verbose', action='store_true', dest='verbose',
         default=False, help='Be verbose when rules are being applied')
@@ -152,37 +163,41 @@ def exitQuiet(exitstate=0):
 
 
 def runCGI():
-    '''Function called when run as a CGI script. Processes Facebook calendars
+    '''Function called when run as a CGI script.
     '''
 
     import cgi
-    #import cgitb; cgitb.enable()
+    if debug: import cgitb; cgitb.enable()
 
     form = cgi.FieldStorage()
     if "uid" not in form or "key" not in form:
         exitQuiet()
-    try:
-        # UID should be numeric, if it's not we have someone playing games
-        uid = int(form['uid'].value)
-    except:
-        exitQuiet()
 
-    # The user's key will be a 16 character string
-    key = form['key'].value
-    re.search('[&?]+', key) and exitQuiet()
-    len(key) == 16 or exitQuiet()
+    if "service" in form:
+        if not form["service"].value in services:
+            exitQuiet()
+        sn = form["service"].value
+    else: sn = "outlook"
+
+    service = services[sn]
+
+    # More sanity required here
+    uid = urllib.parse.quote(form["uid"].value)
+    key = urllib.parse.quote(form["key"].value)
+
+    url = service["url"]%(uid,key)
 
     # Okay, we're happy that the input is sane, lets serve up some data
-    url = 'http://www.facebook.com/ical/u.php?uid=%d&key=%s'%(uid,key)
-    (content, encoding) = getHTTPContent(url)
+    (content, encoding) = getContent(url)
 
-    cal = vobject.readOne(str(content, encoding))
+    try:
+        cal = vobject.readOne(str(content, encoding))
+    except:
+        print(('Content-Type: text/plain; charset=%s\n'%encoding))
+        print(content.decode(encoding))
+        sys.exit(0)
 
-    # We want our rules to be Facebook Specific
-    #rules = [ rule for rule in generateRules() if "facebook" in dir(rule)
-    #        and rule.facebook ]
-
-    cal = applyRules(cal, rules, False)
+    cal = applyRules(cal, generateRules(), False)
 
     print(('Content-Type: text/calendar; charset=%s\n'%encoding))
     writeOutput(cal)

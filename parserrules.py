@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# vim: ts=4 sw=4 expandtab smarttab
 #
 # Copyright (c) 2011 James French <frenchie@frenchie.id.au>
 #
@@ -52,6 +53,13 @@ def facebookOrganiser(cal):
 def whatPrivacy(cal):
     '''Marks events public so google calendar doesn't have a sad about them.'''
 
+    if 'prodid' in cal.contents:
+        if cal.prodid.value not in [
+            "Microsoft Exchange Server",
+            "Facebook"
+            ]:
+            return cal
+
     for event in cal.vevent_list:
         if 'class' in event.contents:
             # Bit of a hack as class is a reserved word in python
@@ -60,77 +68,11 @@ def whatPrivacy(cal):
 
     return cal
 
-def dropAttributes(cal):
-    '''Removing unwanted metadata'''
-    if "facebook" in ruleConfig:
-        if ruleConfig["facebook"] == True: return cal
-
-    eventBlacklist = [x.lower() for x in [
-        "X-ALT-DESC",
-        "X-MICROSOFT-CDO-BUSYSTATUS",
-        "X-MICROSOFT-CDO-IMPORTANCE",
-        "X-MICROSOFT-DISALLOW-COUNTER",
-        "X-MS-OLK-ALLOWEXTERNCHECK",
-        "X-MS-OLK-AUTOSTARTCHECK",
-        "X-MS-OLK-CONFTYPE",
-        "X-MS-OLK-AUTOFILLLOCATION",
-        "TRANSP",
-        "SEQUENCE",
-        "PRIORITY"
-    ]]
-
-    mainBlacklist = [x.lower() for x in [
-        "X-CLIPSTART",
-        "X-CALSTART",
-        "X-OWNER",
-        "X-MS-OLK-WKHRSTART",
-        "X-MS-OLK-WKHREND",
-        "X-WR-RELCALID",
-        "X-MS-OLK-WKHRDAYS",
-        "X-MS-OLK-APPTSEQTIME",
-        "X-CLIPEND",
-        "X-CALEND",
-        "VTIMEZONE",
-        "X-PRIMARY-CALENDAR"
-    ]]
-
-    for event in cal.vevent_list:
-        for blacklist in eventBlacklist:
-            if blacklist in event.contents: del event.contents[blacklist]
-
-    for blkl in mainBlacklist:
-        while blkl in cal.contents: del cal.contents[blkl]
-
-    return cal
-
-def exDate(cal):
-    '''Replacing multi-value EXDATES with multiple single-value EXDATES'''
-    if "facebook" in ruleConfig:
-        if ruleConfig["facebook"] == True: return cal
-
-    from datetime import datetime
-    from pytz import timezone
-
-    default = timezone(ruleConfig["defaultTZ"])
-
-    for event in cal.vevent_list:
-        if 'exdate' not in event.contents: continue
-        dates = event.exdate.value
-
-        del event.contents['exdate']
-
-        for date in dates:
-            if isinstance(date, datetime):
-                if date.tzinfo is None: date = date.replace(tzinfo = default)
-                date = date.astimezone(vobject.icalendar.utc)
-            entry = event.add('exdate')
-            entry.value = [date]
-
-    return cal
-
 def utcise(cal):
-    '''Removing local timezones in favour of UTC. If the remote calendar specifies a timezone
-    then use it, otherwise assume it's in the user-specified or default values'''
+    '''Facebook suck at timezones, remove them'''
+
+    if 'prodid' in cal.contents:
+        if not "Facebook" in cal.prodid.value: return cal
 
     from datetime import datetime
     from pytz import timezone
@@ -151,7 +93,10 @@ def utcise(cal):
     return cal
 
 def unwantedParams(cal):
-    '''Removing unwanted parameters'''
+    '''Remove unwanted Facebook parameters'''
+
+    if 'prodid' in cal.contents:
+        if not "Facebook" in cal.prodid.value: return cal
 
     blklist = [
         "LANGUAGE",
@@ -167,4 +112,25 @@ def unwantedParams(cal):
                     while i in attr.params: del attr.params[i]
             except AttributeError: continue
 
+    return cal
+
+def BusyTentativeOnly(cal):
+    '''Ignore events which are listed as Free, Out of Office or Working Elsewhere'''
+
+    if 'prodid' in cal.contents:
+        if not "Microsoft Exchange Server" in cal.prodid.value: return cal
+
+    oldEvents = cal.vevent_list
+    del cal.vevent_list
+
+    events = []
+
+    for event in oldEvents:
+        # This should never happen from an outlook calendar, but just in case
+        if 'x-microsoft-cdo-busystatus' not in event.contents:
+            events.append(event)
+        if event.x_microsoft_cdo_busystatus.value in [ "BUSY", "TENTATIVE" ]:
+            events.append(event)
+
+    cal.vevent_list = events
     return cal
