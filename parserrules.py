@@ -134,3 +134,15 @@ def BusyTentativeOnly(cal):
 
     cal.vevent_list = events
     return cal
+
+def stripGoogleReminders(cal):
+    '''Outlook chokes on google's reminders'''
+
+    if 'prodid' in cal.contents:
+        if not "Google Calendar" in cal.prodid.value: return cal
+
+    for event in cal.vevent_list:
+        if 'valarm' in event.contents:
+            del event.valarm_list
+
+    return cal
