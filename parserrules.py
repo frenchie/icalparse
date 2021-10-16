@@ -146,3 +146,17 @@ def stripGoogleReminders(cal):
             del event.valarm_list
 
     return cal
+
+def stripGoogleAppleExtensions(cal):
+    '''Remove apple extensions from google calendars'''
+
+    if 'prodid' in cal.contents:
+        if not "Google Calendar" in cal.prodid.value: return cal
+
+    for event in cal.vevent_list:
+        purgelist = []
+        for item in event.contents:
+            if "x-apple" in item: purgelist.append(item)
+        for item in purgelist: del event.contents[item]
+
+    return cal
