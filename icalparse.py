@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/local/bin/python3
 # vim: ts=4 sw=4 expandtab smarttab
 #
 # Copyright (c) 2013 James French <frenchie@frenchie.id.au>
