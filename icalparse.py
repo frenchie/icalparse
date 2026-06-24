@@ -21,21 +21,27 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import sys, os
-import urllib.parse, urllib.request, urllib.error
-import vobject
-from cgi import parse_header
+import argparse
+import os
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 from types import FunctionType
+from urllib.parse import parse_qs
+
+import vobject
 
 debug = False
 
 services = {}
 
-services["outlook"] = { "url": "https://outlook.office365.com/owa/calendar/%s/%s/calendar.ics" }
-services["google"] = { "url": "https://calendar.google.com/calendar/ical/%s/%s/basic.ics" }
-services["facebook"] = { "url": "http://www.facebook.com/ical/u.php?uid=%s&key=%s" }
+services["outlook"] = {"url": "https://outlook.office365.com/owa/calendar/%s/%s/calendar.ics"}
+services["google"] = {"url": "https://calendar.google.com/calendar/ical/%s/%s/basic.ics"}
+services["facebook"] = {"url": "http://www.facebook.com/ical/u.php?uid=%s&key=%s"}
 
-def getContent(url='',stdin=False):
+
+def getContent(url='', stdin=False):
     '''Generic URL opening function.
 
     WARNING: do not call this directly with user input from a CGI script
@@ -50,7 +56,8 @@ def getContent(url='',stdin=False):
         return (content, encoding)
 
     parsedURL = urllib.parse.urlparse(url)
-    if not parsedURL[0]: url = 'file://' + os.path.abspath(url)
+    if not parsedURL[0]:
+        url = 'file://' + os.path.abspath(url)
 
     try:
         res = urllib.request.urlopen(url)
@@ -58,8 +65,9 @@ def getContent(url='',stdin=False):
         encoding = res.headers.get_content_charset()
         res.close()
     except (urllib.error.URLError, OSError) as e:
-        sys.stderr.write('%s\n'%e)
+        sys.stderr.write('%s\n' % e)
     return (content, encoding)
+
 
 def generateRules():
     '''Attempts to load a series of rules into a list. This function is smarter
@@ -72,18 +80,23 @@ def generateRules():
     except ImportError:
         return []
 
-    rules = [ getattr(parserrules, rule) for rule in dir(parserrules) ]
-    rules = [ rule for rule in rules
-        if type(rule) is FunctionType and rule.__module__ == "parserrules" ]
+    rules = [getattr(parserrules, rule) for rule in dir(parserrules)]
+    rules = [rule for rule in rules
+             if type(rule) is FunctionType and rule.__module__ == "parserrules"]
 
     return rules
 
 
-def applyRules(cal, rules=[], verbose=False):
+def applyRules(cal, rules=None, verbose=False):
     '''Runs a series of rules on the lines in ical and mangles its output
     '''
 
+    if rules is None:
+        rules = []
+
     for rule in rules:
+        if verbose:
+            sys.stderr.write('Applying rule: %s\n' % (rule.__doc__ or rule.__name__))
         cal = rule(cal)
 
     return cal
@@ -94,7 +107,7 @@ def writeOutput(cal, outfile=''):
     '''
 
     if not cal:
-        sys.stderr.write('Refusing to write out an empty file')
+        sys.stderr.write('Refusing to write out an empty file\n')
         sys.exit(0)
 
     if not outfile:
@@ -102,13 +115,13 @@ def writeOutput(cal, outfile=''):
     else:
         try:
             out = open(outfile, 'w')
-        except (IOError, OSError) as e:
-            sys.stderr.write('%s\n'%e)
+        except OSError as e:
+            sys.stderr.write('%s\n' % e)
             sys.exit(1)
 
     cal.serialize(out)
 
-    if not out == sys.stdout:
+    if out is not sys.stdout:
         out.close()
 
 
@@ -116,42 +129,43 @@ def runLocal():
     '''Main run function if this script is called locally
     '''
 
-    from optparse import OptionParser
-
-    parser = OptionParser('usage: %prog [options] url')
-    parser.add_option('-s', '--service', action='store_true', dest='service',
-        default=None, help='Specify a service to run rules against')
-    parser.add_option('-i', '--stdin', action='store_true', dest='stdin',
+    parser = argparse.ArgumentParser(
+        description='Fetch and clean up an iCal feed.')
+    parser.add_argument('url', nargs='?', default='',
+        help='URL (or local path) of the calendar to fetch')
+    parser.add_argument('-i', '--stdin', action='store_true', dest='stdin',
         default=False, help='Take a calendar from standard input')
-    parser.add_option('-v', '--verbose', action='store_true', dest='verbose',
+    parser.add_argument('-v', '--verbose', action='store_true', dest='verbose',
         default=False, help='Be verbose when rules are being applied')
-    parser.add_option('-o', '--output', dest='outfile', default='',
+    parser.add_argument('-o', '--output', dest='outfile', default='',
         help='Specify output file (defaults to standard output)')
-    parser.add_option('-m','--encoding', dest='encoding', default='',
-        help='Specify a different character encoding'
+    parser.add_argument('-m', '--encoding', dest='encoding', default='',
+        help='Specify a different character encoding '
         '(ignored if the remote server also specifies one)')
-    parser.add_option('-t','--timezone', dest='timezone', default='',
+    parser.add_argument('-t', '--timezone', dest='timezone', default='',
         help='Specify a timezone to use if the remote calendar doesn\'t '
         'set it properly')
 
-    (options, args) = parser.parse_args()
+    args = parser.parse_args()
 
     # Use stdin if requested, otherwise open a url
-    if not args and not options.stdin:
+    if not args.url and not args.stdin:
         parser.print_usage()
         sys.exit(0)
-    elif not options.stdin:
-        url = args[0]
-    else:
-        url = ''
 
-    (content, encoding) = getContent(url, options.stdin)
-    encoding = encoding or options.encoding or 'utf-8'
+    url = '' if args.stdin else args.url
+
+    if args.timezone:
+        import parserrules
+        parserrules.ruleConfig["defaultTZ"] = args.timezone
+
+    (content, encoding) = getContent(url, args.stdin)
+    encoding = encoding or args.encoding or 'utf-8'
 
     cal = vobject.readOne(str(content, encoding))
-    cal = applyRules(cal, generateRules(), options.verbose)
+    cal = applyRules(cal, generateRules(), args.verbose)
 
-    writeOutput(cal, options.outfile)
+    writeOutput(cal, args.outfile)
 
 
 def exitQuiet(exitstate=0):
@@ -164,43 +178,59 @@ def exitQuiet(exitstate=0):
 
 def runCGI():
     '''Function called when run as a CGI script.
+
+    NOTE: the standard library's `cgi` module was removed in Python 3.13
+    (see PEP 594), so this no longer uses cgi.FieldStorage(). Instead it
+    reads QUERY_STRING (GET) or stdin (POST) directly and parses it with
+    urllib.parse.parse_qs.
     '''
 
-    import cgi
-    if debug: import cgitb; cgitb.enable()
+    method = os.environ.get('REQUEST_METHOD', 'GET').upper()
 
-    form = cgi.FieldStorage()
+    if method == 'POST':
+        try:
+            length = int(os.environ.get('CONTENT_LENGTH', 0) or 0)
+        except ValueError:
+            length = 0
+        raw = sys.stdin.read(length) if length else ''
+    else:
+        raw = os.environ.get('QUERY_STRING', '')
+
+    form = parse_qs(raw)
+
     if "uid" not in form or "key" not in form:
         exitQuiet()
 
     if "service" in form:
-        if not form["service"].value in services:
+        sn = form["service"][0]
+        if sn not in services:
             exitQuiet()
-        sn = form["service"].value
-    else: sn = "facebook"
+    else:
+        sn = "facebook"
 
     service = services[sn]
 
     # More sanity required here
-    uid = urllib.parse.quote(form["uid"].value)
-    key = urllib.parse.quote(form["key"].value)
+    uid = urllib.parse.quote(form["uid"][0])
+    key = urllib.parse.quote(form["key"][0])
 
-    url = service["url"]%(uid,key)
+    url = service["url"] % (uid, key)
 
     # Okay, we're happy that the input is sane, lets serve up some data
     (content, encoding) = getContent(url)
 
     try:
         cal = vobject.readOne(str(content, encoding))
-    except:
-        print(('Content-Type: text/plain; charset=%s\n'%encoding))
+    except Exception:
+        print('Content-Type: text/plain; charset=%s\n' % encoding)
         print(content.decode(encoding))
         sys.exit(0)
 
     cal = applyRules(cal, generateRules(), False)
 
-    print(('Content-Type: text/calendar; charset=%s\n'%encoding))
+    print('Content-Type: text/calendar; charset=%s\n' % encoding)
     writeOutput(cal)
+
 
 if __name__ == '__main__':
 

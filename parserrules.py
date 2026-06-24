@@ -32,32 +32,41 @@ import vobject
 ruleConfig = {}
 ruleConfig["defaultTZ"] = "UTC"
 
+
 def facebookOrganiser(cal):
     '''Adds organiser details to the body of facebook calendars.'''
 
     if 'prodid' in cal.contents:
-        if not "Facebook" in cal.prodid.value: return cal
+        if "Facebook" not in cal.prodid.value:
+            return cal
 
     for event in cal.vevent_list:
-        if 'organizer' not in event.contents: continue
+        if 'organizer' not in event.contents:
+            continue
+        if 'description' not in event.contents:
+            # Nothing to prepend the organiser line to.
+            continue
         try:
-            a = event.organizer.cn_paramlist
+            event.organizer.cn_paramlist
             organizer = "Organised by: " + event.organizer.cn_param + " ("
-            organizer += event.organizer.value.lstrip('MAILTO:') + ")\n\n"
+            value = event.organizer.value
+            if value.upper().startswith("MAILTO:"):
+                value = value[len("MAILTO:"):]
+            organizer += value + ")\n\n"
             event.description.value = organizer + event.description.value
         except AttributeError:
             organizer = "Organized by: " + event.organizer.value
             event.description.value = organizer + "\n\n" + event.description.value
     return cal
 
+
 def whatPrivacy(cal):
     '''Marks events public so google calendar doesn't have a sad about them.'''
 
     if 'prodid' in cal.contents:
-        if cal.prodid.value not in [
-            "Microsoft Exchange Server",
-            "Facebook"
-            ]:
+        prodid = cal.prodid.value
+        if not any(name in prodid for name in
+                   ("Microsoft Exchange Server", "Facebook")):
             return cal
 
     for event in cal.vevent_list:
@@ -68,11 +77,13 @@ def whatPrivacy(cal):
 
     return cal
 
+
 def utcise(cal):
     '''Facebook suck at timezones, remove them'''
 
     if 'prodid' in cal.contents:
-        if not "Facebook" in cal.prodid.value: return cal
+        if "Facebook" not in cal.prodid.value:
+            return cal
 
     from datetime import datetime
     from pytz import timezone
@@ -84,19 +95,23 @@ def utcise(cal):
         dtend = getattr(event, 'dtend', None)
 
         for i in (dtstart, dtend):
-            if not i: continue
+            if not i:
+                continue
             dt = i.value
             if isinstance(dt, datetime):
-                if dt.tzinfo is None: dt = dt.replace(tzinfo = default)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=default)
                 i.value = dt.astimezone(vobject.icalendar.utc)
 
     return cal
+
 
 def unwantedParams(cal):
     '''Remove unwanted Facebook parameters'''
 
     if 'prodid' in cal.contents:
-        if not "Facebook" in cal.prodid.value: return cal
+        if "Facebook" not in cal.prodid.value:
+            return cal
 
     blklist = [
         "LANGUAGE",
@@ -105,20 +120,24 @@ def unwantedParams(cal):
     ]
 
     for event in cal.vevent_list:
-        for attr in event.contents:
-            attr = getattr(event, attr)
+        for attr_name in list(event.contents):
+            attr = getattr(event, attr_name, None)
             try:
                 for i in blklist:
-                    while i in attr.params: del attr.params[i]
-            except AttributeError: continue
+                    while i in attr.params:
+                        del attr.params[i]
+            except AttributeError:
+                continue
 
     return cal
+
 
 def BusyTentativeOnly(cal):
     '''Ignore events which are listed as Free, Out of Office or Working Elsewhere'''
 
     if 'prodid' in cal.contents:
-        if not "Microsoft Exchange Server" in cal.prodid.value: return cal
+        if "Microsoft Exchange Server" not in cal.prodid.value:
+            return cal
 
     oldEvents = cal.vevent_list
     del cal.vevent_list
@@ -129,17 +148,20 @@ def BusyTentativeOnly(cal):
         # This should never happen from an outlook calendar, but just in case
         if 'x-microsoft-cdo-busystatus' not in event.contents:
             events.append(event)
-        if event.x_microsoft_cdo_busystatus.value in [ "BUSY", "TENTATIVE" ]:
+            continue
+        if event.x_microsoft_cdo_busystatus.value in ["BUSY", "TENTATIVE"]:
             events.append(event)
 
     cal.vevent_list = events
     return cal
 
+
 def stripGoogleReminders(cal):
     '''Outlook chokes on google's reminders'''
 
     if 'prodid' in cal.contents:
-        if not "Google Calendar" in cal.prodid.value: return cal
+        if "Google Calendar" not in cal.prodid.value:
+            return cal
 
     for event in cal.vevent_list:
         if 'valarm' in event.contents:
@@ -147,16 +169,20 @@ def stripGoogleReminders(cal):
 
     return cal
 
+
 def stripGoogleAppleExtensions(cal):
     '''Remove apple extensions from google calendars'''
 
     if 'prodid' in cal.contents:
-        if not "Google Calendar" in cal.prodid.value: return cal
+        if "Google Calendar" not in cal.prodid.value:
+            return cal
 
     for event in cal.vevent_list:
         purgelist = []
         for item in event.contents:
-            if "x-apple" in item: purgelist.append(item)
-        for item in purgelist: del event.contents[item]
+            if "x-apple" in item:
+                purgelist.append(item)
+        for item in purgelist:
+            del event.contents[item]
 
     return cal
