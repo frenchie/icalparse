@@ -22,6 +22,7 @@
 # THE SOFTWARE.
 
 import argparse
+import codecs
 import os
 import sys
 import urllib.error
@@ -59,9 +60,10 @@ def getContent(url='', stdin=False):
     if not parsedURL[0]:
         url = 'file://' + os.path.abspath(url)
 
+    content = b''
     try:
-        res = urllib.request.urlopen(url)
-        content = res.read()
+        res = urllib.request.urlopen(url, timeout=30)
+        content = res.read(10 * 1024 * 1024)  # 10MB cap
         encoding = res.headers.get_content_charset()
         res.close()
     except (urllib.error.URLError, OSError) as e:
@@ -192,6 +194,7 @@ def runCGI():
             length = int(os.environ.get('CONTENT_LENGTH', 0) or 0)
         except ValueError:
             length = 0
+        length = min(length, 65536)
         raw = sys.stdin.read(length) if length else ''
     else:
         raw = os.environ.get('QUERY_STRING', '')
@@ -210,25 +213,30 @@ def runCGI():
 
     service = services[sn]
 
-    # More sanity required here
-    uid = urllib.parse.quote(form["uid"][0])
-    key = urllib.parse.quote(form["key"][0])
+    uid = urllib.parse.quote(form["uid"][0], safe='')
+    key = urllib.parse.quote(form["key"][0], safe='')
 
     url = service["url"] % (uid, key)
 
     # Okay, we're happy that the input is sane, lets serve up some data
     (content, encoding) = getContent(url)
 
+    safe_encoding = encoding or 'utf-8'
     try:
-        cal = vobject.readOne(str(content, encoding))
+        codecs.lookup(safe_encoding)
+    except LookupError:
+        safe_encoding = 'utf-8'
+
+    try:
+        cal = vobject.readOne(str(content, safe_encoding))
     except Exception:
-        print('Content-Type: text/plain; charset=%s\n' % encoding)
-        print(content.decode(encoding))
+        print('Content-Type: text/plain; charset=%s\n' % safe_encoding)
+        print(content.decode(safe_encoding))
         sys.exit(0)
 
     cal = applyRules(cal, generateRules(), False)
 
-    print('Content-Type: text/calendar; charset=%s\n' % encoding)
+    print('Content-Type: text/calendar; charset=%s\n' % safe_encoding)
     writeOutput(cal)
 
 
